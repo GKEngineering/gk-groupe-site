@@ -455,6 +455,10 @@
   .pack-btn:hover{background:var(--blue);}
   .pack-card.featured .pack-btn{background:var(--blue);}
   .pack-card.featured .pack-btn:hover{background:var(--blue-deep);}
+  .pack-btn.disabled,
+  .pack-btn.disabled:hover,
+  .pack-card.featured .pack-btn.disabled,
+  .pack-card.featured .pack-btn.disabled:hover{background:#d9dce4;color:#767c8c;cursor:not-allowed;pointer-events:none;}
   @media(max-width:900px){
     .pack-grid{grid-template-columns:1fr;}
     .pack-card.featured{transform:none;}
