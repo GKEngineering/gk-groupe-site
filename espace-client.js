@@ -156,6 +156,7 @@
       show('view-app');
       $('#resa-date').min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
       loadAll();
+      if(location.hash === '#reserver') goTab('reserver');
     });
   }
 
@@ -478,6 +479,8 @@
 
   // Lien espace-client#inscription (bouton « Inscrivez-vous » du site) : ouvre directement la création de compte.
   if(location.hash === '#inscription') $('[data-auth-tab=signup]').click();
+  // Lien espace-client#reserver (boutons « Réserver en ligne » du site) : après connexion, ouvre l'onglet Réservations.
+  if(location.hash === '#reserver') setMsg($('#auth-msg'), 'Connectez-vous ou créez un compte pour réserver en ligne.');
 
   sb.auth.getSession().then(function(res){
     if(recovering) return;
