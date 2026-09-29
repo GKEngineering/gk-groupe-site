@@ -476,6 +476,9 @@
   var preset = new URLSearchParams(location.search).get('suivi');
   if(preset){ $('#track-public-num').value = preset; $('#track-num').value = preset; }
 
+  // Lien espace-client#inscription (bouton « Inscrivez-vous » du site) : ouvre directement la création de compte.
+  if(location.hash === '#inscription') $('[data-auth-tab=signup]').click();
+
   sb.auth.getSession().then(function(res){
     if(recovering) return;
     if(!res.data.session){
