@@ -6,7 +6,7 @@
   var LABELS = {
     service: { livraison:'Livraison', demenagement:'Déménagement', service_auto:'Service auto', detaillage:'Détaillage auto' },
     plage:   { matin:'Matin', apres_midi:'Après-midi', soir:'Soir' },
-    resa:    { en_attente:'En attente', confirmee:'Confirmée', terminee:'Terminée', annulee:'Annulée' },
+    resa:    { en_attente:'En attente', confirmee:'Confirmée', refusee:'Refusée', terminee:'Terminée', annulee:'Annulée' },
     doc:     { envoyee:'Envoyée', acceptee:'Acceptée', refusee:'Refusée', payee:'Payée', en_retard:'En retard' },
     livr:    { recue:'Reçue', en_preparation:'En préparation', en_route:'En route', livree:'Livrée', probleme:'Problème' }
   };
@@ -146,9 +146,14 @@
     $('#btn-logout').hidden = false;
     var meta = user.user_metadata || {};
     $('#hello-name').textContent = (meta.nom_complet || user.email).split(' ')[0];
-    show('view-app');
-    $('#resa-date').min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
-    loadAll();
+    show('view-loading');
+    sb.from('profiles').select('is_admin').eq('id', user.id).maybeSingle().then(function(res){
+      if(state.user !== user) return;
+      if(res.data && res.data.is_admin){ show('view-admin'); loadAdmin(); return; }
+      show('view-app');
+      $('#resa-date').min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+      loadAll();
+    });
   }
 
   function goTab(name){
@@ -179,7 +184,10 @@
     return '<div class="ec-item">' +
       '<div class="ec-item-main"><strong>' + esc(LABELS.service[r.service]) + '</strong>' +
       '<span class="ec-muted">' + esc(fmtDate(r.date_souhaitee)) + ' · ' + esc(LABELS.plage[r.plage_horaire]) + '</span>' +
-      '<span class="ec-muted ec-small">' + esc(r.adresse) + '</span></div>' +
+      (vehiculeTexte(r) ? '<span class="ec-muted ec-small">🚗 ' + esc(vehiculeTexte(r)) + '</span>' : '') +
+      '<span class="ec-muted ec-small">' + esc(r.adresse) + '</span>' +
+      (r.reponse_admin ? '<div class="ec-reply"><b>Message de GK Groupe</b>' + esc(r.reponse_admin) + '</div>' : '') +
+      '</div>' +
       '<div class="ec-item-side">' + badge(r.statut, 'resa') +
       (withCancel && r.statut === 'en_attente' ? '<button class="ec-textbtn ec-danger" data-cancel="' + esc(r.id) + '">Annuler</button>' : '') +
       '</div></div>';
@@ -198,6 +206,18 @@
     if(go) goTab(go.dataset.goInline);
   });
 
+  var AUTO_SERVICES = ['service_auto', 'detaillage'];
+  var resaVehicule = window.GKVehicule ? GKVehicule.mount($('#resa-vehicule'), 'vehicule_') : null;
+  function syncVehicule(){
+    if(resaVehicule) resaVehicule.setVisible(AUTO_SERVICES.indexOf($('#resa-service').value) !== -1);
+  }
+  $('#resa-service').addEventListener('change', syncVehicule);
+  syncVehicule();
+
+  function vehiculeTexte(r){
+    return [r.vehicule_marque, r.vehicule_modele, r.vehicule_annee].filter(Boolean).join(' ');
+  }
+
   $('#form-resa').addEventListener('submit', function(e){
     e.preventDefault();
     var form = e.target;
@@ -208,11 +228,19 @@
       adresse: $('#resa-adresse').value.trim(),
       details: $('#resa-details').value.trim() || null
     };
+    var veh = resaVehicule && resaVehicule.value();
+    if(veh){
+      row.vehicule_annee = veh.annee;
+      row.vehicule_marque = veh.marque;
+      row.vehicule_modele = veh.modele;
+    }
     busy(form, true);
     sb.from('reservations').insert(row).then(function(res){
       if(res.error){ setMsg($('#resa-msg'), 'Erreur : ' + res.error.message, true); return; }
       setMsg($('#resa-msg'), 'Réservation envoyée ! On vous confirme sous 24h.');
       form.reset();
+      if(resaVehicule) resaVehicule.reset();
+      syncVehicule();
       loadReservations();
       notifyOwner(row);
     }).finally(function(){ busy(form, false); });
@@ -235,6 +263,7 @@
         Service: LABELS.service[row.service],
         Date: row.date_souhaitee + ' (' + LABELS.plage[row.plage_horaire] + ')',
         Adresse: row.adresse,
+        Vehicule: vehiculeTexte(row),
         Details: row.details || ''
       })
     }).catch(function(){ /* la réservation est déjà enregistrée dans Supabase */ });
@@ -280,6 +309,117 @@
       if(win) win.location = res.data.signedUrl; else location.href = res.data.signedUrl;
     });
   });
+
+  /* ── ADMIN : gestion des réservations ── */
+  var adm = { rows:[], filter:'en_attente' };
+  var ADM_TITLES = { en_attente:'À traiter', confirmee:'Confirmées', refusee:'Refusées', terminee:'Terminées', annulee:'Annulées', tous:'Toutes les réservations' };
+
+  function loadAdmin(){
+    $('#adm-list').innerHTML = '<div class="ec-spinner"></div>';
+    sb.from('reservations').select('*, profiles(nom_complet, email, telephone)')
+      .order('date_souhaitee', { ascending:true }).then(function(res){
+        if(res.error){ $('#adm-list').innerHTML = empty('Impossible de charger les réservations : ' + res.error.message); return; }
+        adm.rows = res.data;
+        renderAdmin();
+      });
+  }
+
+  function renderAdmin(){
+    var today = new Date().toISOString().slice(0, 10);
+    $('#adm-count-attente').textContent = adm.rows.filter(function(r){ return r.statut === 'en_attente'; }).length;
+    $('#adm-count-confirmee').textContent = adm.rows.filter(function(r){ return r.statut === 'confirmee' && r.date_souhaitee >= today; }).length;
+    $('#adm-count-tous').textContent = adm.rows.length;
+    $('#adm-list-title').textContent = ADM_TITLES[adm.filter];
+    $$('.ec-chip[data-adm-filter]').forEach(function(c){ c.classList.toggle('active', c.dataset.admFilter === adm.filter); });
+    var rows = adm.rows.filter(function(r){ return adm.filter === 'tous' || r.statut === adm.filter; });
+    $('#adm-list').innerHTML = rows.length ? rows.map(admItem).join('') : empty('Aucune réservation ici.');
+  }
+
+  function admItem(r){
+    var c = r.profiles || {};
+    var actions = r.statut === 'en_attente'
+      ? '<button class="adm-btn adm-ok" data-adm-action="confirmee">✓ Accepter</button><button class="adm-btn adm-bad" data-adm-action="refusee">✕ Refuser</button>'
+      : r.statut === 'confirmee'
+      ? '<button class="adm-btn adm-ok" data-adm-action="terminee">Marquer terminée</button><button class="adm-btn adm-bad" data-adm-action="refusee">Annuler / refuser</button>'
+      : '';
+    return '<div class="adm-item" data-id="' + esc(r.id) + '">' +
+      '<div class="adm-head"><div><strong>' + esc(LABELS.service[r.service]) + '</strong> ' + badge(r.statut, 'resa') + '</div>' +
+      '<span class="adm-date">' + esc(fmtDate(r.date_souhaitee)) + ' · ' + esc(LABELS.plage[r.plage_horaire]) + '</span></div>' +
+      '<div class="adm-grid">' +
+        '<div><span class="adm-k">Client</span>' + esc(c.nom_complet || '—') + '</div>' +
+        '<div><span class="adm-k">Téléphone</span>' + (c.telephone ? '<a class="ec-link" href="tel:' + esc(c.telephone) + '">' + esc(c.telephone) + '</a>' : '—') + '</div>' +
+        '<div><span class="adm-k">Courriel</span>' + (c.email ? '<a class="ec-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') + '</div>' +
+        '<div><span class="adm-k">Adresse</span>' + esc(r.adresse) + '</div>' +
+        (vehiculeTexte(r) ? '<div><span class="adm-k">Véhicule</span>' + esc(vehiculeTexte(r)) + '</div>' : '') +
+        '<div><span class="adm-k">Reçue le</span>' + esc(fmtDateTime(r.created_at)) + '</div>' +
+      '</div>' +
+      (r.details ? '<p class="adm-details">« ' + esc(r.details) + ' »</p>' : '') +
+      (r.reponse_admin ? '<div class="ec-reply"><b>Votre dernier message' + (r.repondu_at ? ' (' + esc(fmtDateTime(r.repondu_at)) + ')' : '') + '</b>' + esc(r.reponse_admin) + '</div>' : '') +
+      '<div class="adm-reply">' +
+        '<textarea rows="2" placeholder="Message au client (optionnel) — ex. : Confirmé pour 9h, on vous appelle la veille."></textarea>' +
+        '<div class="adm-actions">' + actions + '<button class="adm-btn" data-adm-action="message">Envoyer le message</button></div>' +
+        '<p class="ec-msg" role="status"></p>' +
+      '</div>' +
+    '</div>';
+  }
+
+  $$('[data-adm-filter]').forEach(function(b){
+    b.addEventListener('click', function(){ adm.filter = b.dataset.admFilter; renderAdmin(); });
+  });
+  $('#adm-refresh').addEventListener('click', loadAdmin);
+
+  $('#adm-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-adm-action]');
+    if(!btn) return;
+    var item = btn.closest('.adm-item');
+    var r = adm.rows.filter(function(x){ return x.id === item.dataset.id; })[0];
+    var action = btn.dataset.admAction;
+    var message = item.querySelector('textarea').value.trim();
+    var msgEl = item.querySelector('.ec-msg');
+    if(action === 'message' && !message){ setMsg(msgEl, 'Écrivez un message d\'abord.', true); return; }
+    if(action === 'refusee' && !confirm('Refuser cette réservation ?' + (message ? '' : '\n\nAstuce : ajoutez un message pour expliquer au client.'))) return;
+
+    var patch = {};
+    if(action !== 'message') patch.statut = action;
+    if(message){ patch.reponse_admin = message; patch.repondu_at = new Date().toISOString(); }
+    $$('button', item).forEach(function(b){ b.disabled = true; });
+    sb.from('reservations').update(patch).eq('id', r.id).then(function(res){
+      if(res.error){
+        setMsg(msgEl, 'Erreur : ' + res.error.message, true);
+        $$('button', item).forEach(function(b){ b.disabled = false; });
+        return;
+      }
+      for(var k in patch) r[k] = patch[k];
+      renderAdmin();
+      showToast('Enregistré — le client le voit dans son espace.', mailtoClient(r, message));
+    });
+  });
+
+  // Lien qui ouvre le logiciel de courriel avec un message prêt, pour prévenir aussi le client par courriel.
+  function mailtoClient(r, message){
+    var c = r.profiles || {};
+    if(!c.email) return '';
+    var body = 'Bonjour ' + (c.nom_complet || '') + ',\n\n' +
+      'Votre réservation « ' + LABELS.service[r.service] + ' » du ' + fmtDate(r.date_souhaitee) +
+      ' (' + LABELS.plage[r.plage_horaire] + ') est maintenant : ' + LABELS.resa[r.statut] + '.\n' +
+      (message ? '\n' + message + '\n' : '') +
+      '\nSuivez vos réservations dans votre espace client : https://gkgroupeinc.com/espace-client.html\n\n' +
+      'GK Groupe inc\n581-447-0086';
+    return 'mailto:' + encodeURIComponent(c.email) +
+      '?subject=' + encodeURIComponent('Votre réservation GK Groupe — ' + LABELS.resa[r.statut]) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  function showToast(text, mail){
+    var old = $('.ec-toast');
+    if(old) old.remove();
+    var t = document.createElement('div');
+    t.className = 'ec-toast';
+    t.setAttribute('role', 'status');
+    t.innerHTML = '<span>' + esc(text) + '</span>' + (mail ? '<a href="' + esc(mail) + '">Aussi l\'envoyer par courriel ✉</a>' : '');
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 8000);
+  }
 
   /* Livraisons */
   function loadLivraisons(){

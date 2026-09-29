@@ -46,9 +46,21 @@ create table if not exists public.reservations (
   adresse     text not null,
   details     text,
   statut      text not null default 'en_attente'
-              check (statut in ('en_attente','confirmee','terminee','annulee')),
+              check (statut in ('en_attente','confirmee','refusee','terminee','annulee')),
   created_at  timestamptz not null default now()
 );
+
+-- Véhicule (service auto et détaillage seulement).
+alter table public.reservations add column if not exists vehicule_annee  smallint;
+alter table public.reservations add column if not exists vehicule_marque text;
+alter table public.reservations add column if not exists vehicule_modele text;
+
+-- Réponse de GK Groupe au client (visible dans son espace) + statut « refusée ».
+alter table public.reservations add column if not exists reponse_admin text;
+alter table public.reservations add column if not exists repondu_at    timestamptz;
+alter table public.reservations drop constraint if exists reservations_statut_check;
+alter table public.reservations add constraint reservations_statut_check
+  check (statut in ('en_attente','confirmee','refusee','terminee','annulee'));
 
 
 -- ── SOUMISSIONS ET FACTURES ─────────────────────────────────────

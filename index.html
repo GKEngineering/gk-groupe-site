@@ -128,9 +128,8 @@
     <a href="#faq">FAQ</a>
     <a href="#carrieres">Carrières</a>
     <a href="#contact">Contact</a>
-    <a href="espace-client.html">Espace client</a>
   </nav>
-  <button onclick="openModal('soumission')" class="call-btn"><span class="dot"></span>Soumission gratuite</button>
+  <a href="espace-client.html" class="call-btn"><span class="dot"></span>Espace client</a>
   <button class="burger" onclick="toggleMobileNav()" aria-label="Ouvrir le menu">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
   </button>
@@ -152,9 +151,8 @@
       <a href="#faq" onclick="toggleMobileNav()">FAQ</a>
       <a href="#carrieres" onclick="toggleMobileNav()">Carrières</a>
       <a href="#contact" onclick="toggleMobileNav()">Contact</a>
-      <a href="espace-client.html">Espace client</a>
     </nav>
-    <button onclick="toggleMobileNav();openModal('soumission')" class="call-btn"><span class="dot"></span>Soumission gratuite</button>
+    <a href="espace-client.html" class="call-btn"><span class="dot"></span>Espace client</a>
     <a href="tel:+15814470086" class="btn-ghost"> 581-447-0086</a>
   </div>
 </div>
@@ -626,6 +624,7 @@
           <option>❄️ Déneigement (bientôt)</option>
         </select>
       </div>
+      <div id="s-vehicule" hidden></div>
       <div class="frow">
         <div class="fg"><label>Date souhaitée</label><input name="date" type="date"></div>
         <div class="fg"><label>Ville / Secteur</label><input name="ville" placeholder="Chicoutimi, Jonquiere..."></div>
@@ -683,6 +682,7 @@
   </div>
 </div>
 
+<script src="vehicules.js"></script>
 <script>
 /* ── PRELOADER ── */
 window.addEventListener('load', function(){
@@ -759,6 +759,11 @@ document.addEventListener('keydown', function(e){
 });
 
 /* ── SOUMISSION FORM (envoi direct via Web3Forms) ── */
+var sVehicule = GKVehicule.mount(document.getElementById('s-vehicule'), 'vehicule_');
+var sService = document.querySelector('#form-soumission select[name=service]');
+function syncVehicule(){ sVehicule.setVisible(/mécanique|Détaillage/.test(sService.value)); }
+sService.addEventListener('change', syncVehicule);
+syncVehicule();
 document.getElementById('form-soumission').addEventListener('submit', function(e){
   e.preventDefault();
   var form = this;
@@ -773,6 +778,8 @@ document.getElementById('form-soumission').addEventListener('submit', function(e
     document.getElementById('s-sent').style.display = 'block';
     setTimeout(function(){ closeModal('soumission'); document.getElementById('s-sent').style.display='none'; }, 2500);
     form.reset();
+    sVehicule.reset();
+    syncVehicule();
   }).catch(function(){
     document.getElementById('s-error').style.display = 'block';
   }).finally(function(){

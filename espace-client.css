@@ -98,6 +98,41 @@
 .ec-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink-soft);}
 .ec-chip.active,.ec-chip:hover{background:var(--blue);border-color:var(--blue);color:#fff;}
 
+/* Réponse de GK Groupe affichée au client (et rappel côté admin) */
+.ec-reply{margin-top:8px;background:var(--blue-tint);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:8px 12px;font-size:13.5px;line-height:1.45;color:var(--ink-soft);white-space:pre-line;}
+.ec-reply b{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--blue-deep);margin-bottom:2px;white-space:normal;}
+
+/* ── Admin ── */
+.adm-item{border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:14px;background:#fafbff;}
+.adm-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.adm-head strong{font-size:16px;margin-right:6px;}
+.adm-date{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--blue);}
+.adm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 18px;font-size:14px;}
+.adm-grid > div{min-width:0;overflow-wrap:anywhere;}
+.adm-k{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mono-grey);margin-bottom:2px;}
+.adm-details{margin-top:12px;font-size:14px;color:var(--ink-soft);font-style:italic;}
+.adm-reply{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+.adm-reply textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;font:14px 'Inter',sans-serif;background:#fff;resize:vertical;outline:none;}
+.adm-reply textarea:focus{border-color:var(--blue);}
+.adm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.adm-btn{border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s,color .2s;}
+.adm-btn:hover{border-color:var(--ink);}
+.adm-btn:disabled{opacity:.5;cursor:wait;}
+.adm-ok{background:#12813f;border-color:#12813f;color:#fff;}
+.adm-ok:hover{background:#0e6a33;border-color:#0e6a33;}
+.adm-bad{color:#c02626;border-color:#f2c4c4;}
+.adm-bad:hover{background:#c02626;border-color:#c02626;color:#fff;}
+.adm-item .ec-msg:empty{display:none;}
+#adm-list .ec-spinner{margin:40px auto;}
+.ec-toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;max-width:calc(100% - 32px);
+  background:var(--ink);color:#fff;border-radius:12px;padding:14px 18px;font-size:14px;font-weight:600;
+  display:flex;gap:14px;align-items:center;flex-wrap:wrap;box-shadow:0 20px 40px -12px rgba(10,14,26,.5);
+  animation:ec-toast-in .3s ease both;
+}
+.ec-toast a{color:#9db8ff;text-decoration:underline;}
+@keyframes ec-toast-in{from{opacity:0;transform:translate(-50%,12px);}}
+
 /* Suivi de livraison */
 .ec-track{border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:12px;background:#fafbff;}
 .ec-track-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;}
@@ -122,6 +157,7 @@
   .ec-auth{grid-template-columns:1fr;min-height:0;}
   .ec-auth-brand{padding:40px 24px;gap:30px;}
   .ec-grid2{grid-template-columns:1fr;}
+  .adm-grid{grid-template-columns:1fr 1fr;}
 }
 @media(max-width:600px){
   .ec-main{padding:92px 16px 40px;}
@@ -133,6 +169,8 @@
   .ec-stat{flex-direction:row;align-items:center;gap:14px;}
   .ec-item{flex-direction:column;align-items:flex-start;}
   .ec-item-side{justify-content:flex-start;}
+  .adm-grid{grid-template-columns:1fr;}
+  .adm-item{padding:14px;}
 }
 @media (prefers-reduced-motion: reduce){
   .gkx-logo.gkx-static,.gkx-static .gkx-express{animation:none;clip-path:none;}

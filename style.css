@@ -66,6 +66,7 @@
     font-size:13px;font-weight:700;letter-spacing:.02em;
     display:flex;align-items:center;gap:8px;border:none;cursor:pointer;
   }
+  header .call-btn{white-space:nowrap;}
   .call-btn span.dot{width:7px;height:7px;border-radius:50%;background:#37e07a;animation:pulse 1.6s infinite;flex-shrink:0;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
   .burger{display:none;background:none;border:none;cursor:pointer;color:var(--ink);width:34px;height:34px;align-items:center;justify-content:center;}
@@ -82,7 +83,9 @@
     background:#fff;padding:26px 26px 34px;display:flex;flex-direction:column;
     transform:translateX(100%);transition:transform .35s cubic-bezier(.2,.9,.25,1);
     box-shadow:-20px 0 50px -20px rgba(10,14,26,.3);
+    overflow-y:auto;
   }
+  .mobile-nav-panel > *{flex-shrink:0;}
   .mobile-nav-overlay.open .mobile-nav-panel{transform:translateX(0);}
   .mobile-nav-top{display:flex;align-items:center;justify-content:space-between;}
   .mobile-nav-top img{height:26px;}
@@ -251,6 +254,15 @@
   .fg-file input[type=file]{display:none;}
   .fg-file .file-name{font-size:12px;color:var(--blue);margin-top:4px;}
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  /* Sélecteur de véhicule (vehicules.js) */
+  .veh-block{background:var(--blue-tint);border:1px solid #d6e0ff;border-radius:11px;padding:14px 14px 0;margin-bottom:14px;}
+  .veh-block[hidden]{display:none;}
+  .veh-title{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--blue-deep);margin-bottom:10px;}
+  .veh-row{display:grid;grid-template-columns:.8fr 1fr 1.2fr;gap:10px;}
+  .veh-row .fg input{margin-top:6px;}
+  .veh-row .fg input[hidden]{display:none;}
+  .veh-row select:disabled{opacity:.6;cursor:not-allowed;}
+  @media(max-width:600px){.veh-row{grid-template-columns:1fr;}}
   .form-submit{
     width:100%;padding:15px;background:var(--blue);color:#fff;
     border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;
