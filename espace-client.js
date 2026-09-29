@@ -344,7 +344,13 @@
     $$('.ec-chip[data-adm-filter]').forEach(function(c){ c.classList.toggle('active', c.dataset.admFilter === adm.filter); });
     var rows = adm.rows.filter(function(r){ return adm.filter === 'tous' || r.statut === adm.filter; });
     $('#adm-list').innerHTML = rows.length ? rows.map(admItem).join('') : empty('Aucune réservation ici.');
+    var bulk = $('#adm-bulk-delete');
+    bulk.hidden = !(CLOSED.indexOf(adm.filter) !== -1 && rows.length > 1);
+    bulk.textContent = '🗑 Supprimer les ' + rows.length + ' réservations « ' + ADM_TITLES[adm.filter].toLowerCase() + ' »';
   }
+
+  // Seules les réservations terminées, annulées ou refusées peuvent être supprimées.
+  var CLOSED = ['terminee', 'annulee', 'refusee'];
 
   function admItem(r){
     var c = r.profiles || {};
@@ -352,7 +358,7 @@
       ? '<button class="adm-btn adm-ok" data-adm-action="confirmee">✓ Accepter</button><button class="adm-btn adm-bad" data-adm-action="refusee">✕ Refuser</button>'
       : r.statut === 'confirmee'
       ? '<button class="adm-btn adm-ok" data-adm-action="terminee">Marquer terminée</button><button class="adm-btn adm-bad" data-adm-action="refusee">Annuler / refuser</button>'
-      : '';
+      : '<button class="adm-btn adm-bad" data-adm-delete>🗑 Supprimer</button>';
     return '<div class="adm-item" data-id="' + esc(r.id) + '">' +
       '<div class="adm-head"><div><strong>' + esc(LABELS.service[r.service]) + '</strong> ' + badge(r.statut, 'resa') + '</div>' +
       '<span class="adm-date">' + esc(fmtDate(r.date_souhaitee)) + ' · ' + esc(LABELS.plage[r.plage_horaire]) + '</span></div>' +
@@ -464,6 +470,42 @@
       $$('[data-adm-tab]').forEach(function(x){ x.classList.toggle('active', x === t); });
       $$('[data-adm-panel]').forEach(function(p){ p.hidden = p.dataset.admPanel !== t.dataset.admTab; });
       if(t.dataset.admTab === 'square' && !agendaLoaded){ agendaLoaded = true; loadAgenda(); }
+    });
+  });
+
+  function deleteReservations(ids, done){
+    sb.from('reservations').delete().in('id', ids).then(function(res){
+      if(res.error){ done(res.error.message); return; }
+      adm.rows = adm.rows.filter(function(r){ return ids.indexOf(r.id) === -1; });
+      renderAdmin();
+      showToast(ids.length > 1 ? ids.length + ' réservations supprimées.' : 'Réservation supprimée.', '');
+      done();
+    });
+  }
+
+  $('#adm-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-adm-delete]');
+    if(!btn) return;
+    var item = btn.closest('.adm-item');
+    var r = adm.rows.filter(function(x){ return x.id === item.dataset.id; })[0];
+    var c = r.profiles || {};
+    if(!confirm('Supprimer définitivement cette réservation ?\n\n' + LABELS.service[r.service] + ' — ' + (c.nom_complet || '') + ' — ' + fmtDate(r.date_souhaitee) +
+                '\n\nElle disparaîtra aussi de l\'espace du client.')) return;
+    btn.disabled = true;
+    deleteReservations([r.id], function(err){
+      if(err){ setMsg(item.querySelector('.adm-reply .ec-msg'), 'Erreur : ' + err, true); btn.disabled = false; }
+    });
+  });
+
+  $('#adm-bulk-delete').addEventListener('click', function(){
+    var btn = this;
+    var ids = adm.rows.filter(function(r){ return r.statut === adm.filter; }).map(function(r){ return r.id; });
+    if(!ids.length || CLOSED.indexOf(adm.filter) === -1) return;
+    if(!confirm('Supprimer définitivement ces ' + ids.length + ' réservations ?\n\nElles disparaîtront aussi de l\'espace des clients. Cette action est irréversible.')) return;
+    btn.disabled = true;
+    deleteReservations(ids, function(err){
+      btn.disabled = false;
+      if(err) alert('Erreur : ' + err);
     });
   });
 

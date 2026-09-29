@@ -123,6 +123,7 @@
 .adm-bad{color:#c02626;border-color:#f2c4c4;}
 .adm-bad:hover{background:#c02626;border-color:#c02626;color:#fff;}
 .adm-item .ec-msg:empty{display:none;}
+.adm-bulk{margin:4px 0 2px;}
 #adm-list .ec-spinner{margin:40px auto;}
 .ec-toast{
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;max-width:calc(100% - 32px);
