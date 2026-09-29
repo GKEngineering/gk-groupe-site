@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E97LYHVST7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-E97LYHVST7');
+</script>
+
+<title>Espace client — GK Groupe inc</title>
+<meta name="description" content="Espace client GK Groupe inc : réservez un service, consultez vos soumissions et factures, suivez vos livraisons.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="espace-client.css">
+</head>
+<body class="ec-body">
+
+<header class="ec-header">
+  <a href="index.html"><img src="logo.png" alt="GK Groupe inc" class="logo"></a>
+  <div class="ec-header-right">
+    <a href="index.html" class="ec-back">← Retour au site</a>
+    <button class="call-btn" id="btn-logout" hidden>Déconnexion</button>
+  </div>
+</header>
+
+<main class="ec-main">
+
+  <!-- ── Chargement ── -->
+  <section class="ec-view" id="view-loading">
+    <div class="ec-spinner" aria-label="Chargement"></div>
+  </section>
+
+  <!-- ── Configuration manquante (visible seulement tant que supabase-config.js n'est pas rempli) ── -->
+  <section class="ec-view" id="view-config" hidden>
+    <div class="ec-card ec-narrow">
+      <h2>Espace client bientôt disponible</h2>
+      <p class="ec-muted">Notre espace client est en cours d'activation. En attendant, appelez-nous au <a href="tel:+15814470086" class="ec-link">581-447-0086</a> ou écrivez à <a href="mailto:gestion@gkgroupeinc.com" class="ec-link">gestion@gkgroupeinc.com</a>.</p>
+    </div>
+  </section>
+
+  <!-- ── Connexion / inscription ── -->
+  <section class="ec-view ec-auth" id="view-auth" hidden>
+    <div class="ec-auth-brand">
+      <div class="gkx-logo gkx-static" role="img" aria-label="GK Groupe">
+        <span class="gkx-lines" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="gkx-gk">GK</span>
+        <span class="gkx-express">Espace client</span>
+      </div>
+      <ul class="ec-perks">
+        <li><b>Réservez</b> une livraison, un déménagement, un service auto ou un détaillage.</li>
+        <li><b>Retrouvez</b> vos soumissions et factures en PDF.</li>
+        <li><b>Suivez</b> vos livraisons en temps réel.</li>
+      </ul>
+    </div>
+
+    <div class="ec-card ec-auth-card">
+      <div class="ec-tabs" role="tablist">
+        <button class="ec-tab active" data-auth-tab="login" role="tab">Connexion</button>
+        <button class="ec-tab" data-auth-tab="signup" role="tab">Créer un compte</button>
+      </div>
+
+      <form id="form-login" class="ec-form" data-auth-panel="login">
+        <div class="fg"><label for="login-email">Courriel</label><input id="login-email" type="email" autocomplete="email" required></div>
+        <div class="fg"><label for="login-pass">Mot de passe</label><input id="login-pass" type="password" autocomplete="current-password" required></div>
+        <button type="submit" class="form-submit">Se connecter</button>
+        <button type="button" class="ec-textbtn" id="btn-forgot">Mot de passe oublié ?</button>
+      </form>
+
+      <form id="form-signup" class="ec-form" data-auth-panel="signup" hidden>
+        <div class="fg"><label for="su-name">Nom complet</label><input id="su-name" type="text" autocomplete="name" required></div>
+        <div class="fg"><label for="su-phone">Téléphone</label><input id="su-phone" type="tel" autocomplete="tel" required></div>
+        <div class="fg"><label for="su-email">Courriel</label><input id="su-email" type="email" autocomplete="email" required></div>
+        <div class="fg"><label for="su-pass">Mot de passe <span class="ec-muted">(8 caractères min.)</span></label><input id="su-pass" type="password" autocomplete="new-password" minlength="8" required></div>
+        <button type="submit" class="form-submit">Créer mon compte</button>
+      </form>
+
+      <p class="ec-msg" id="auth-msg" role="status"></p>
+
+      <div class="ec-divider"><span>ou</span></div>
+      <form id="form-track-public" class="ec-track-inline">
+        <label for="track-public-num">Suivre un colis sans compte</label>
+        <div class="ec-inline">
+          <input id="track-public-num" type="text" placeholder="N° de suivi (ex. GKX-1042)" required>
+          <button type="submit" class="call-btn">Suivre</button>
+        </div>
+      </form>
+      <div id="track-public-result"></div>
+    </div>
+  </section>
+
+  <!-- ── Nouveau mot de passe (après le lien reçu par courriel) ── -->
+  <section class="ec-view" id="view-reset" hidden>
+    <div class="ec-card ec-narrow">
+      <h2>Nouveau mot de passe</h2>
+      <form id="form-reset" class="ec-form">
+        <div class="fg"><label for="reset-pass">Nouveau mot de passe</label><input id="reset-pass" type="password" autocomplete="new-password" minlength="8" required></div>
+        <button type="submit" class="form-submit">Enregistrer</button>
+      </form>
+      <p class="ec-msg" id="reset-msg" role="status"></p>
+    </div>
+  </section>
+
+  <!-- ── Tableau de bord ── -->
+  <section class="ec-view" id="view-app" hidden>
+    <div class="ec-hello">
+      <div>
+        <span class="eyebrow">Espace client</span>
+        <h1>Bonjour <span id="hello-name"></span></h1>
+      </div>
+      <button class="call-btn" data-go="reserver"><span class="dot"></span>Réserver un service</button>
+    </div>
+
+    <div class="ec-tabs ec-tabs-main" role="tablist">
+      <button class="ec-tab active" data-tab="accueil" role="tab">Accueil</button>
+      <button class="ec-tab" data-tab="reserver" role="tab">Réservations</button>
+      <button class="ec-tab" data-tab="documents" role="tab">Soumissions &amp; factures</button>
+      <button class="ec-tab" data-tab="suivi" role="tab">Suivi de livraison</button>
+    </div>
+
+    <!-- Accueil -->
+    <div class="ec-panel" data-panel="accueil">
+      <div class="ec-stats">
+        <button class="ec-stat" data-go="reserver"><span class="ec-stat-num" id="stat-resa">–</span><span>Réservations à venir</span></button>
+        <button class="ec-stat" data-go="documents"><span class="ec-stat-num" id="stat-docs">–</span><span>Factures à payer</span></button>
+        <button class="ec-stat" data-go="suivi"><span class="ec-stat-num" id="stat-livr">–</span><span>Livraisons en cours</span></button>
+      </div>
+      <div class="ec-card">
+        <h3>Prochaine réservation</h3>
+        <div id="next-resa"></div>
+      </div>
+    </div>
+
+    <!-- Réservations -->
+    <div class="ec-panel" data-panel="reserver" hidden>
+      <div class="ec-grid2">
+        <div class="ec-card">
+          <h3>Nouvelle réservation</h3>
+          <p class="ec-muted">On vous confirme la date par téléphone ou courriel sous 24h.</p>
+          <form id="form-resa" class="ec-form">
+            <div class="fg">
+              <label for="resa-service">Service</label>
+              <select id="resa-service" required>
+                <option value="livraison">📦 Livraison</option>
+                <option value="demenagement">🚚 Déménagement</option>
+                <option value="service_auto">🔧 Service auto</option>
+                <option value="detaillage">✨ Détaillage auto</option>
+              </select>
+            </div>
+            <div class="frow">
+              <div class="fg"><label for="resa-date">Date souhaitée</label><input id="resa-date" type="date" required></div>
+              <div class="fg">
+                <label for="resa-plage">Moment</label>
+                <select id="resa-plage" required>
+                  <option value="matin">Matin</option>
+                  <option value="apres_midi">Après-midi</option>
+                  <option value="soir">Soir</option>
+                </select>
+              </div>
+            </div>
+            <div class="fg"><label for="resa-adresse">Adresse</label><input id="resa-adresse" type="text" autocomplete="street-address" required></div>
+            <div class="fg"><label for="resa-details">Détails <span class="ec-muted">(optionnel)</span></label><textarea id="resa-details" rows="3" placeholder="Nombre de pièces, modèle du véhicule, taille du colis…"></textarea></div>
+            <button type="submit" class="form-submit">Envoyer la réservation</button>
+            <p class="ec-msg" id="resa-msg" role="status"></p>
+          </form>
+        </div>
+        <div class="ec-card">
+          <h3>Mes réservations</h3>
+          <div id="resa-list" class="ec-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="ec-panel" data-panel="documents" hidden>
+      <div class="ec-card">
+        <div class="ec-card-head">
+          <h3>Soumissions &amp; factures</h3>
+          <div class="ec-chips">
+            <button class="ec-chip active" data-doc-filter="tous">Tous</button>
+            <button class="ec-chip" data-doc-filter="soumission">Soumissions</button>
+            <button class="ec-chip" data-doc-filter="facture">Factures</button>
+          </div>
+        </div>
+        <div id="doc-list" class="ec-list"></div>
+      </div>
+    </div>
+
+    <!-- Suivi -->
+    <div class="ec-panel" data-panel="suivi" hidden>
+      <div class="ec-grid2">
+        <div class="ec-card">
+          <h3>Mes livraisons</h3>
+          <div id="livr-list" class="ec-list"></div>
+        </div>
+        <div class="ec-card">
+          <h3>Suivre un numéro</h3>
+          <form id="form-track" class="ec-track-inline">
+            <label for="track-num" class="ec-sr">Numéro de suivi</label>
+            <div class="ec-inline">
+              <input id="track-num" type="text" placeholder="N° de suivi (ex. GKX-1042)" required>
+              <button type="submit" class="call-btn">Suivre</button>
+            </div>
+          </form>
+          <div id="track-result"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="ec-footer">
+  © 2026 GK Groupe inc · <a href="tel:+15814470086">581-447-0086</a> · <a href="mailto:gestion@gkgroupeinc.com">gestion@gkgroupeinc.com</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="espace-client.js"></script>
+</body>
+</html>
