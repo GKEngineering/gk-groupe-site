@@ -4,14 +4,14 @@
   var WEB3FORMS_KEY = '7e12bb33-bec8-47ed-9c49-5411d79c59ed';
 
   var LABELS = {
-    service: { livraison:'Livraison', demenagement:'Déménagement', service_auto:'Service auto', detaillage:'Détaillage auto' },
+    service: { livraison:'Livraison', demenagement:'Déménagement', service_auto:'Service auto', detaillage:'Détaillage auto', autre:'Autre' },
     plage:   { matin:'Matin', apres_midi:'Après-midi', soir:'Soir' },
     resa:    { en_attente:'En attente', confirmee:'Confirmée', refusee:'Refusée', terminee:'Terminée', annulee:'Annulée' },
     doc:     { envoyee:'Envoyée', acceptee:'Acceptée', refusee:'Refusée', payee:'Payée', en_retard:'En retard' },
     livr:    { recue:'Reçue', en_preparation:'En préparation', en_route:'En route', livree:'Livrée', probleme:'Problème' }
   };
   var TONE = {
-    en_attente:'warn', confirmee:'ok', terminee:'muted', annulee:'bad',
+    demandee:'info', en_attente:'warn', confirmee:'ok', terminee:'muted', annulee:'bad',
     envoyee:'warn', acceptee:'ok', refusee:'bad', payee:'ok', en_retard:'bad',
     recue:'muted', en_preparation:'warn', en_route:'info', livree:'ok', probleme:'bad'
   };
@@ -167,7 +167,7 @@
   $$('[data-tab]').forEach(function(b){ b.addEventListener('click', function(){ goTab(b.dataset.tab); }); });
   $$('[data-go]').forEach(function(b){ b.addEventListener('click', function(){ goTab(b.dataset.go); }); });
 
-  function loadAll(){ loadReservations(); loadDocuments(); loadLivraisons(); }
+  function loadAll(){ loadReservations(); loadDocuments(); loadSoumissions(); loadLivraisons(); }
 
   /* Réservations */
   function loadReservations(){
@@ -293,7 +293,8 @@
   }
   function renderDocs(){
     var rows = state.docs.filter(function(d){ return state.docFilter === 'tous' || d.type === state.docFilter; });
-    $('#doc-list').innerHTML = rows.length ? rows.map(function(d){
+    var soums = state.docFilter === 'facture' ? [] : state.soums;
+    $('#doc-list').innerHTML = rows.length || soums.length ? soums.map(soumItemClient).join('') + rows.map(function(d){
       return '<div class="ec-item">' +
         '<div class="ec-item-main"><strong>' + esc(d.titre) + '</strong>' +
         '<span class="ec-muted">' + (d.type === 'facture' ? 'Facture' : 'Soumission') + ' n° ' + esc(d.numero) + ' · ' + esc(fmtDate(d.date_doc)) + '</span></div>' +
@@ -301,7 +302,7 @@
         badge(d.statut, 'doc') +
         (d.fichier ? '<button class="ec-textbtn" data-pdf="' + esc(d.fichier) + '">PDF ↓</button>' : '') +
         '</div></div>';
-    }).join('') : empty('Aucun document pour le moment.');
+    }).join('') : empty('Aucun document pour le moment. Cliquez « Demander une soumission » pour commencer.');
   }
   $$('[data-doc-filter]').forEach(function(b){
     b.addEventListener('click', function(){
@@ -321,6 +322,463 @@
     });
   });
 
+  /* ── SOUMISSIONS EN LIGNE ──
+     Le client fait une demande → l'admin ajoute les lignes et l'envoie → le client la télécharge en PDF et répond. */
+  var TPS = 0.05, TVQ = 0.09975;
+  var SOUM_CLIENT = { demandee:'En préparation', envoyee:'À approuver', acceptee:'Acceptée', refusee:'Refusée', annulee:'Annulée' };
+  var SOUM_ADMIN = { demandee:'À compléter', envoyee:'Envoyées', acceptee:'Acceptées', refusee:'Refusées', annulee:'Annulées', tous:'Toutes les soumissions' };
+  var SOUM_ADMIN_BADGE = { demandee:'À compléter', envoyee:'Envoyée', acceptee:'Acceptée', refusee:'Refusée', annulee:'Annulée' };
+  state.soums = [];
+
+  function soumNumero(s){ return 'S-' + new Date(s.created_at).getFullYear() + '-' + String(s.numero).padStart(4, '0'); }
+  function round2(n){ return Math.round(n * 100) / 100; }
+  function soumTotaux(lignes, taxes){
+    var st = round2(lignes.reduce(function(t, l){ return t + (Number(l.quantite) || 0) * (Number(l.prix) || 0); }, 0));
+    var tps = taxes ? round2(st * TPS) : 0;
+    var tvq = taxes ? round2(st * TVQ) : 0;
+    return { sousTotal: st, tps: tps, tvq: tvq, total: round2(st + tps + tvq) };
+  }
+  function soumBadge(s, labels){ return '<span class="ec-badge ec-' + (TONE[s.statut] || 'muted') + '">' + esc(labels[s.statut]) + '</span>'; }
+  function soumExpiree(s){ return s.statut === 'envoyee' && s.valide_jusqu && s.valide_jusqu < new Date().toISOString().slice(0, 10); }
+  function soumVehiculeTexte(s){ return [s.vehicule_marque, s.vehicule_modele, s.vehicule_annee].filter(Boolean).join(' '); }
+
+  // Courriel à GK Groupe (Web3Forms, comme les réservations).
+  function notifyOwnerSoum(subject, fields){
+    var meta = state.user.user_metadata || {};
+    var body = { access_key: WEB3FORMS_KEY, subject: subject, from_name: 'Espace client GK Groupe', replyto: state.user.email,
+                 Client: meta.nom_complet || '', Courriel: state.user.email, Telephone: meta.telephone || '' };
+    for(var k in fields) body[k] = fields[k];
+    fetch('https://api.web3forms.com/submit', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' }, body: JSON.stringify(body)
+    }).catch(function(){ /* la demande est déjà enregistrée dans Supabase */ });
+  }
+
+  /* Client : demande */
+  var soumVehicule = window.GKVehicule ? GKVehicule.mount($('#soum-vehicule'), 'soum_veh_') : null;
+  function syncSoumVehicule(){
+    if(soumVehicule) soumVehicule.setVisible(AUTO_SERVICES.indexOf($('#soum-service').value) !== -1);
+  }
+  $('#soum-service').addEventListener('change', syncSoumVehicule);
+  syncSoumVehicule();
+  function toggleSoumAsk(on){
+    $('#soum-ask').hidden = !on;
+    if(on){ $('#soum-date').min = new Date().toISOString().slice(0, 10); $('#soum-desc').focus(); }
+  }
+  $('#btn-soum-ask').addEventListener('click', function(){ toggleSoumAsk($('#soum-ask').hidden); });
+  $('#soum-cancel').addEventListener('click', function(){ toggleSoumAsk(false); });
+
+  $('#form-soum').addEventListener('submit', function(e){
+    e.preventDefault();
+    var form = e.target;
+    var row = {
+      service: $('#soum-service').value,
+      description: $('#soum-desc').value.trim(),
+      adresse: $('#soum-adresse').value.trim() || null,
+      date_souhaitee: $('#soum-date').value || null
+    };
+    var veh = soumVehicule && soumVehicule.value();
+    if(veh){ row.vehicule_annee = veh.annee; row.vehicule_marque = veh.marque; row.vehicule_modele = veh.modele; }
+    busy(form, true);
+    sb.from('soumissions').insert(row).then(function(res){
+      if(res.error){ setMsg($('#soum-msg'), 'Erreur : ' + res.error.message, true); return; }
+      form.reset();
+      if(soumVehicule) soumVehicule.reset();
+      syncSoumVehicule();
+      setMsg($('#soum-msg'), '');
+      toggleSoumAsk(false);
+      showToast('Demande envoyée ! Votre soumission apparaîtra ici dès qu\'elle sera prête.', '');
+      loadSoumissions();
+      notifyOwnerSoum('Nouvelle demande de soumission (espace client) — ' + LABELS.service[row.service], {
+        Service: LABELS.service[row.service], Description: row.description, Adresse: row.adresse || '',
+        Date: row.date_souhaitee || '', Vehicule: soumVehiculeTexte(row)
+      });
+    }).finally(function(){ busy(form, false); });
+  });
+
+  /* Client : liste (mêlée aux factures dans l'onglet « Soumissions & factures ») */
+  function loadSoumissions(){
+    sb.from('soumissions').select('*').order('created_at', { ascending:false }).then(function(res){
+      if(res.error) return;
+      state.soums = res.data;
+      renderDocs();
+    });
+  }
+  function soumItemClient(s){
+    var t = s.statut === 'demandee' ? null : soumTotaux(s.lignes || [], s.taxes);
+    var exp = soumExpiree(s);
+    return '<div class="ec-item" data-soum="' + esc(s.id) + '">' +
+      '<div class="ec-item-main"><strong>Soumission ' + esc(soumNumero(s)) + ' · ' + esc(LABELS.service[s.service]) + '</strong>' +
+        '<span class="ec-muted">Demandée le ' + esc(fmtDate(s.created_at.slice(0, 10))) +
+          (s.valide_jusqu && s.statut === 'envoyee' ? ' · valide jusqu\'au ' + esc(fmtDate(s.valide_jusqu)) : '') + '</span>' +
+        '<span class="ec-muted ec-small soum-desc">' + esc(s.description) + '</span>' +
+        (s.note_admin && s.statut !== 'demandee' ? '<div class="ec-reply"><b>Note de GK Groupe</b>' + esc(s.note_admin) + '</div>' : '') +
+      '</div>' +
+      '<div class="ec-item-side">' +
+        (t ? '<span class="ec-amount">' + esc(fmtMoney(t.total)) + '</span>' : '') +
+        (exp ? '<span class="ec-badge ec-bad">Expirée</span>' : soumBadge(s, SOUM_CLIENT)) +
+        (t ? '<button class="ec-textbtn" data-soum-pdf>PDF ↓</button>' : '') +
+        (s.statut === 'envoyee' && !exp ? '<button class="adm-btn adm-ok" data-soum-rep="acceptee">Accepter</button><button class="ec-textbtn ec-danger" data-soum-rep="refusee">Refuser</button>' : '') +
+        (s.statut === 'demandee' ? '<button class="ec-textbtn ec-danger" data-soum-rep="annulee">Annuler</button>' : '') +
+      '</div></div>';
+  }
+
+  $('#doc-list').addEventListener('click', function(e){
+    var el = e.target.closest('[data-soum-pdf],[data-soum-rep]');
+    if(!el) return;
+    var s = state.soums.filter(function(x){ return x.id === el.closest('[data-soum]').dataset.soum; })[0];
+    if(el.hasAttribute('data-soum-pdf')){
+      var meta = state.user.user_metadata || {};
+      downloadSoumPdf(s, { nom_complet: meta.nom_complet, email: state.user.email, telephone: meta.telephone })
+        .catch(function(err){ alert(err.message); });
+      return;
+    }
+    var rep = el.dataset.soumRep;
+    var question = {
+      acceptee: 'Accepter la soumission ' + soumNumero(s) + ' ?\n\nGK Groupe sera avisé et vous contactera pour planifier.',
+      refusee: 'Refuser la soumission ' + soumNumero(s) + ' ?',
+      annulee: 'Annuler votre demande de soumission ?'
+    }[rep];
+    if(!confirm(question)) return;
+    el.disabled = true;
+    sb.rpc('repondre_soumission', { p_id: s.id, p_reponse: rep }).then(function(res){
+      if(res.error){ alert('Impossible : ' + res.error.message); el.disabled = false; return; }
+      showToast({ acceptee:'Merci ! Soumission acceptée — on vous contacte pour planifier.', refusee:'Soumission refusée.', annulee:'Demande annulée.' }[rep], '');
+      loadSoumissions();
+      if(rep !== 'annulee'){
+        var t = soumTotaux(s.lignes || [], s.taxes);
+        notifyOwnerSoum('Soumission ' + soumNumero(s) + ' ' + (rep === 'acceptee' ? 'ACCEPTÉE' : 'refusée') + ' par le client', {
+          Soumission: soumNumero(s), Service: LABELS.service[s.service], Total: fmtMoney(t.total)
+        });
+      }
+    });
+  });
+
+  /* PDF (généré dans le navigateur avec jsPDF, chargé seulement au besoin) */
+  var pdfReady = null;
+  function loadScript(src){
+    return new Promise(function(ok, ko){
+      var el = document.createElement('script');
+      el.src = src;
+      el.onload = ok;
+      el.onerror = function(){ ko(new Error('Impossible de charger le générateur de PDF. Vérifiez votre connexion.')); };
+      document.head.appendChild(el);
+    });
+  }
+  function loadPdfTools(){
+    if(!pdfReady){
+      pdfReady = loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js')
+        .then(function(){ return loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js'); })
+        .then(function(){
+          return fetch('logo.png').then(function(r){ if(!r.ok) throw new Error(); return r.blob(); }).then(function(blob){
+            return new Promise(function(ok){ var fr = new FileReader(); fr.onload = function(){ ok(fr.result); }; fr.readAsDataURL(blob); });
+          }).catch(function(){ return null; });
+        })
+        .catch(function(err){ pdfReady = null; throw err; });
+    }
+    return pdfReady;
+  }
+  // Les polices de base du PDF ne connaissent que le Latin-1 : on remplace le reste.
+  function pdfText(v){
+    return String(v == null ? '' : v)
+      .replace(/[  ]/g, ' ').replace(/[‘’]/g, '\'').replace(/[“”]/g, '"')
+      .replace(/[–—]/g, '-').replace(/…/g, '...').replace(/œ/g, 'oe').replace(/Œ/g, 'OE')
+      .replace(/[^\n\x20-\xff]/g, '');
+  }
+  function pdfMoney(n){
+    var parts = Math.abs(n).toFixed(2).split('.');
+    return (n < 0 ? '-' : '') + parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ',' + parts[1] + ' $';
+  }
+
+  function downloadSoumPdf(s, client){
+    return loadPdfTools().then(function(logo){
+      var doc = new window.jspdf.jsPDF({ unit:'pt', format:'letter' });
+      var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 48;
+      var t = soumTotaux(s.lignes || [], s.taxes);
+      var c = client || {};
+
+      // En-tête
+      if(logo) doc.addImage(logo, 'PNG', M, 40, 128, 48);
+      else { doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(22); doc.setTextColor(22, 87, 255); doc.text('GK Groupe inc', M, 72); }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(10, 14, 26);
+      doc.text('SOUMISSION', W - M, 58, { align:'right' });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
+      var info = ['N° ' + soumNumero(s), 'Date : ' + fmtDate((s.envoyee_at || new Date().toISOString()).slice(0, 10))];
+      if(s.valide_jusqu) info.push('Valide jusqu\'au : ' + fmtDate(s.valide_jusqu));
+      doc.text(info.map(pdfText), W - M, 76, { align:'right', lineHeightFactor:1.5 });
+
+      doc.setDrawColor(22, 87, 255); doc.setLineWidth(2); doc.line(M, 122, W - M, 122);
+
+      // De / Préparée pour
+      var y = 146;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(22, 87, 255);
+      doc.text('DE', M, y); doc.text(pdfText('PRÉPARÉE POUR'), W / 2, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(10, 14, 26);
+      doc.text(['GK Groupe inc', '581-447-0086', 'gestion@gkgroupeinc.com', 'gkgroupeinc.com'], M, y + 16, { lineHeightFactor:1.45 });
+      var dest = [c.nom_complet || c.email || 'Client', c.email, c.telephone, s.adresse].filter(Boolean).map(pdfText);
+      doc.text(doc.splitTextToSize(dest.join('\n'), W / 2 - M), W / 2, y + 16, { lineHeightFactor:1.45 });
+      y += 16 + Math.max(4, dest.length) * 14.5 + 14;
+
+      // Objet de la demande
+      var objet = [LABELS.service[s.service], soumVehiculeTexte(s) && 'Véhicule : ' + soumVehiculeTexte(s),
+                   s.date_souhaitee && 'Date souhaitée : ' + fmtDate(s.date_souhaitee)].filter(Boolean).join('  ·  ');
+      var besoin = doc.splitTextToSize(pdfText(s.description), W - 2 * M - 24);
+      var boxH = 30 + besoin.length * 13;
+      doc.setFillColor(238, 242, 255); doc.roundedRect(M, y, W - 2 * M, boxH, 6, 6, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(pdfText(objet), M + 12, y + 18);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(27, 34, 51);
+      doc.text(besoin, M + 12, y + 34);
+      y += boxH + 18;
+
+      // Lignes
+      doc.autoTable({
+        startY: y,
+        margin: { left: M, right: M, bottom: 60 },
+        head: [[pdfText('Description'), pdfText('Qté'), 'Prix unitaire', 'Montant']],
+        body: (s.lignes || []).map(function(l){
+          var q = Number(l.quantite) || 0, p = Number(l.prix) || 0;
+          return [pdfText(l.description), String(q).replace('.', ','), pdfMoney(p), pdfMoney(round2(q * p))];
+        }),
+        theme: 'striped',
+        styles: { font:'helvetica', fontSize:10, cellPadding:7, textColor:[10, 14, 26] },
+        headStyles: { fillColor:[22, 87, 255], textColor:255, fontStyle:'bold' },
+        alternateRowStyles: { fillColor:[246, 248, 252] },
+        columnStyles: { 1:{ halign:'center', cellWidth:48 }, 2:{ halign:'right', cellWidth:95 }, 3:{ halign:'right', cellWidth:95 } }
+      });
+      y = doc.lastAutoTable.finalY + 14;
+
+      // Totaux
+      var rows = [['Sous-total', pdfMoney(t.sousTotal)]];
+      if(s.taxes){ rows.push(['TPS (5 %)', pdfMoney(t.tps)]); rows.push(['TVQ (9,975 %)', pdfMoney(t.tvq)]); }
+      if(y + rows.length * 18 + 40 > H - 60){ doc.addPage(); y = 60; }
+      doc.setFontSize(10);
+      rows.forEach(function(r){
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(107, 114, 128); doc.text(r[0], W - M - 150, y);
+        doc.setTextColor(10, 14, 26); doc.text(r[1], W - M, y, { align:'right' });
+        y += 18;
+      });
+      doc.setFillColor(22, 87, 255); doc.roundedRect(W - M - 170, y - 6, 170, 30, 5, 5, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
+      doc.text('TOTAL', W - M - 158, y + 13); doc.text(pdfMoney(t.total), W - M - 12, y + 13, { align:'right' });
+      y += 50;
+
+      // Note et acceptation
+      doc.setTextColor(10, 14, 26);
+      if(s.note_admin){
+        var note = doc.splitTextToSize(pdfText(s.note_admin), W - 2 * M);
+        if(y + 20 + note.length * 13 > H - 60){ doc.addPage(); y = 60; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('Notes', M, y);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text(note, M, y + 16);
+        y += 24 + note.length * 13;
+      }
+      if(y + 30 > H - 60){ doc.addPage(); y = 60; }
+      doc.setFontSize(9.5); doc.setTextColor(107, 114, 128);
+      doc.text(pdfText('Pour accepter cette soumission : connectez-vous à votre espace client sur gkgroupeinc.com/espace-client.'), M, y);
+
+      // Pied de page
+      for(var i = 1, n = doc.getNumberOfPages(); i <= n; i++){
+        doc.setPage(i);
+        doc.setDrawColor(223, 228, 238); doc.setLineWidth(0.8); doc.line(M, H - 44, W - M, H - 44);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(154, 163, 181);
+        doc.text(pdfText('GK Groupe inc · 581-447-0086 · gestion@gkgroupeinc.com · gkgroupeinc.com'), M, H - 28);
+        doc.text('Page ' + i + ' / ' + n, W - M, H - 28, { align:'right' });
+      }
+      doc.save('Soumission-' + soumNumero(s) + '.pdf');
+    });
+  }
+
+  /* Admin : compléter et envoyer */
+  var asState = { rows:[], filter:'demandee' };
+
+  function loadAdminSoums(){
+    sb.from('soumissions').select('*, profiles(nom_complet, email, telephone)').order('created_at', { ascending:false }).then(function(res){
+      if(res.error){ $('#as-list').innerHTML = empty('Impossible de charger les soumissions : ' + res.error.message); return; }
+      asState.rows = res.data;
+      renderAdminSoums();
+    });
+  }
+
+  function renderAdminSoums(){
+    var waiting = asState.rows.filter(function(s){ return s.statut === 'demandee'; }).length;
+    $('#adm-soum-count').hidden = !waiting;
+    $('#adm-soum-count').textContent = waiting;
+    $('#as-title').textContent = SOUM_ADMIN[asState.filter];
+    $$('[data-as-filter]').forEach(function(c){ c.classList.toggle('active', c.dataset.asFilter === asState.filter); });
+    var rows = asState.rows.filter(function(s){ return asState.filter === 'tous' || s.statut === asState.filter; });
+    $('#as-list').innerHTML = rows.length ? rows.map(asItem).join('') : empty('Aucune soumission ici.');
+    $$('#as-list .as-editor').forEach(function(ed){ refreshTotals(ed.closest('.adm-item')); });
+  }
+
+  function lineRow(l){
+    return '<tr>' +
+      '<td><input data-l="description" value="' + esc(l.description) + '" placeholder="Ex. : Main-d\'œuvre, 2 déménageurs × 3 h"></td>' +
+      '<td><input data-l="quantite" type="number" min="0" step="0.25" value="' + esc(l.quantite) + '"></td>' +
+      '<td><input data-l="prix" type="number" min="0" step="0.01" value="' + esc(l.prix) + '" placeholder="0,00"></td>' +
+      '<td class="as-amount"></td>' +
+      '<td><button class="as-del" data-as="del" title="Retirer la ligne" aria-label="Retirer la ligne">×</button></td></tr>';
+  }
+
+  function asItem(s){
+    var c = s.profiles || {};
+    var editable = s.statut === 'demandee' || s.statut === 'envoyee';
+    var lignes = s.lignes && s.lignes.length ? s.lignes : [{ description:'', quantite:1, prix:'' }];
+    var valid = s.valide_jusqu || new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    var body;
+    if(editable){
+      body = '<div class="as-editor">' +
+        '<div class="as-table-wrap"><table class="as-lines"><thead><tr><th>Description</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th><th></th></tr></thead>' +
+        '<tbody>' + lignes.map(lineRow).join('') + '</tbody></table></div>' +
+        '<button class="ec-textbtn" data-as="add">+ Ajouter une ligne</button>' +
+        '<div class="as-bottom"><div class="as-opts">' +
+          '<label class="as-check"><input type="checkbox" data-as-taxes' + (s.taxes ? ' checked' : '') + '> Ajouter TPS (5 %) et TVQ (9,975 %)</label>' +
+          '<div class="fg"><label>Valide jusqu\'au</label><input type="date" data-as-valid value="' + esc(valid) + '"></div>' +
+          '<div class="fg"><label>Note au client (optionnel)</label><textarea rows="2" data-as-note placeholder="Ce qui est inclus, délais, conditions…">' + esc(s.note_admin || '') + '</textarea></div>' +
+        '</div><div class="as-totals" data-as-totals></div></div>' +
+        '<div class="adm-actions">' +
+          '<button class="adm-btn" data-as="pdf">Aperçu PDF</button>' +
+          '<button class="adm-btn adm-ok" data-as="send">' + (s.statut === 'envoyee' ? 'Mettre à jour et renvoyer' : 'Envoyer au client') + '</button>' +
+          (s.statut === 'demandee' ? '<button class="adm-btn adm-bad" data-as="decline">Décliner la demande</button>' : '') +
+        '</div><p class="ec-msg" role="status"></p></div>';
+    } else {
+      var t = soumTotaux(s.lignes || [], s.taxes);
+      body = '<div class="as-summary">' +
+        (s.lignes && s.lignes.length ? '<span class="ec-amount">' + esc(fmtMoney(t.total)) + '</span><button class="adm-btn" data-as="pdf">PDF ↓</button>' : '') +
+        (s.statut !== 'acceptee' ? '<button class="adm-btn adm-bad" data-as="delete">🗑 Supprimer</button>' : '') +
+        (s.repondue_at ? '<span class="ec-muted ec-small">Réponse du client le ' + esc(fmtDateTime(s.repondue_at)) + '</span>' : '') +
+        '</div><p class="ec-msg" role="status"></p>';
+    }
+    return '<div class="adm-item" data-soum-id="' + esc(s.id) + '">' +
+      '<div class="adm-head"><div><strong>' + esc(soumNumero(s)) + ' · ' + esc(LABELS.service[s.service]) + '</strong> ' + soumBadge(s, SOUM_ADMIN_BADGE) +
+        (soumExpiree(s) ? ' <span class="ec-badge ec-bad">Expirée</span>' : '') + '</div>' +
+        '<span class="adm-date">Demandée le ' + esc(fmtDateTime(s.created_at)) + '</span></div>' +
+      '<div class="adm-grid">' +
+        '<div><span class="adm-k">Client</span>' + esc(c.nom_complet || '—') + '</div>' +
+        '<div><span class="adm-k">Téléphone</span>' + (c.telephone ? '<a class="ec-link" href="tel:' + esc(c.telephone) + '">' + esc(c.telephone) + '</a>' : '—') + '</div>' +
+        '<div><span class="adm-k">Courriel</span>' + (c.email ? '<a class="ec-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') + '</div>' +
+        (s.adresse ? '<div><span class="adm-k">Adresse</span>' + esc(s.adresse) + '</div>' : '') +
+        (soumVehiculeTexte(s) ? '<div><span class="adm-k">Véhicule</span>' + esc(soumVehiculeTexte(s)) + '</div>' : '') +
+        (s.date_souhaitee ? '<div><span class="adm-k">Date souhaitée</span>' + esc(fmtDate(s.date_souhaitee)) + '</div>' : '') +
+      '</div>' +
+      '<p class="adm-details">« ' + esc(s.description) + ' »</p>' +
+      body + '</div>';
+  }
+
+  function readEditor(item){
+    var lignes = $$('.as-lines tbody tr', item).map(function(tr){
+      return {
+        description: tr.querySelector('[data-l=description]').value.trim(),
+        quantite: parseFloat(tr.querySelector('[data-l=quantite]').value) || 0,
+        prix: parseFloat(tr.querySelector('[data-l=prix]').value) || 0
+      };
+    }).filter(function(l){ return l.description || l.prix; });
+    return {
+      lignes: lignes,
+      taxes: item.querySelector('[data-as-taxes]').checked,
+      note_admin: item.querySelector('[data-as-note]').value.trim() || null,
+      valide_jusqu: item.querySelector('[data-as-valid]').value || null
+    };
+  }
+
+  function refreshTotals(item){
+    $$('.as-lines tbody tr', item).forEach(function(tr){
+      var q = parseFloat(tr.querySelector('[data-l=quantite]').value) || 0;
+      var p = parseFloat(tr.querySelector('[data-l=prix]').value) || 0;
+      tr.querySelector('.as-amount').textContent = q && p ? fmtMoney(round2(q * p)) : '';
+    });
+    var ed = readEditor(item);
+    var t = soumTotaux(ed.lignes, ed.taxes);
+    item.querySelector('[data-as-totals]').innerHTML =
+      '<div><span>Sous-total</span><b>' + esc(fmtMoney(t.sousTotal)) + '</b></div>' +
+      (ed.taxes ? '<div><span>TPS (5 %)</span><b>' + esc(fmtMoney(t.tps)) + '</b></div><div><span>TVQ (9,975 %)</span><b>' + esc(fmtMoney(t.tvq)) + '</b></div>' : '') +
+      '<div class="as-grand"><span>Total</span><b>' + esc(fmtMoney(t.total)) + '</b></div>';
+  }
+
+  function mailtoSoum(s, total){
+    var c = s.profiles || {};
+    if(!c.email) return '';
+    var body = 'Bonjour ' + (c.nom_complet || '') + ',\n\n' +
+      'Votre soumission ' + soumNumero(s) + ' (' + LABELS.service[s.service] + ') est prête : ' + fmtMoney(total) + '.\n\n' +
+      'Consultez-la, téléchargez-la en PDF et acceptez-la dans votre espace client : https://gkgroupeinc.com/espace-client\n\n' +
+      'GK Groupe inc\n581-447-0086';
+    return 'mailto:' + encodeURIComponent(c.email) + '?subject=' + encodeURIComponent('Votre soumission GK Groupe ' + soumNumero(s)) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  $('#as-list').addEventListener('input', function(e){
+    var item = e.target.closest('.adm-item');
+    if(item && item.querySelector('.as-editor')) refreshTotals(item);
+  });
+  $('#as-list').addEventListener('change', function(e){
+    if(e.target.matches('[data-as-taxes]')) refreshTotals(e.target.closest('.adm-item'));
+  });
+
+  $('#as-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-as]');
+    if(!btn) return;
+    var item = btn.closest('.adm-item');
+    var s = asState.rows.filter(function(x){ return x.id === item.dataset.soumId; })[0];
+    var msg = item.querySelector('.ec-msg');
+    var kind = btn.dataset.as;
+
+    if(kind === 'add'){
+      var tbody = item.querySelector('.as-lines tbody');
+      tbody.insertAdjacentHTML('beforeend', lineRow({ description:'', quantite:1, prix:'' }));
+      tbody.lastElementChild.querySelector('input').focus();
+      return;
+    }
+    if(kind === 'del'){
+      var tr = btn.closest('tr');
+      if(tr.parentNode.children.length > 1) tr.remove();
+      else $$('input', tr).forEach(function(i){ i.value = i.dataset.l === 'quantite' ? 1 : ''; });
+      refreshTotals(item);
+      return;
+    }
+    if(kind === 'pdf'){
+      var preview = item.querySelector('.as-editor') ? Object.assign({}, s, readEditor(item)) : s;
+      downloadSoumPdf(preview, s.profiles).catch(function(err){ setMsg(msg, err.message, true); });
+      return;
+    }
+
+    var patch, done;
+    if(kind === 'send'){
+      var ed = readEditor(item);
+      if(!ed.lignes.length){ setMsg(msg, 'Ajoutez au moins une ligne avec une description et un prix.', true); return; }
+      if(ed.lignes.some(function(l){ return !l.description; })){ setMsg(msg, 'Chaque ligne doit avoir une description.', true); return; }
+      var t = soumTotaux(ed.lignes, ed.taxes);
+      patch = Object.assign(ed, { total: t.total, statut: 'envoyee', envoyee_at: new Date().toISOString() });
+      done = function(){ showToast('Soumission envoyée — le client la voit dans son espace et peut la télécharger en PDF.', mailtoSoum(s, t.total)); };
+    } else if(kind === 'decline'){
+      if(!confirm('Décliner cette demande de soumission ?\n\nAstuce : ajoutez d\'abord une note pour expliquer au client.')) return;
+      patch = { statut: 'annulee', note_admin: item.querySelector('[data-as-note]').value.trim() || null };
+      done = function(){ showToast('Demande déclinée.', ''); };
+    } else if(kind === 'delete'){
+      if(!confirm('Supprimer définitivement la soumission ' + soumNumero(s) + ' ?\n\nElle disparaîtra aussi de l\'espace du client.')) return;
+      btn.disabled = true;
+      sb.from('soumissions').delete().eq('id', s.id).then(function(res){
+        if(res.error){ setMsg(msg, 'Erreur : ' + res.error.message, true); btn.disabled = false; return; }
+        asState.rows = asState.rows.filter(function(x){ return x.id !== s.id; });
+        renderAdminSoums();
+        showToast('Soumission supprimée.', '');
+      });
+      return;
+    } else return;
+
+    $$('button', item).forEach(function(b){ b.disabled = true; });
+    sb.from('soumissions').update(patch).eq('id', s.id).then(function(res){
+      if(res.error){
+        setMsg(msg, 'Erreur : ' + res.error.message, true);
+        $$('button', item).forEach(function(b){ b.disabled = false; });
+        return;
+      }
+      for(var k in patch) s[k] = patch[k];
+      renderAdminSoums();
+      done();
+    });
+  });
+
+  $$('[data-as-filter]').forEach(function(b){
+    b.addEventListener('click', function(){ asState.filter = b.dataset.asFilter; renderAdminSoums(); });
+  });
+
   /* ── ADMIN : gestion des réservations ── */
   var adm = { rows:[], filter:'en_attente' };
   var ADM_TITLES = { en_attente:'À traiter', confirmee:'Confirmées', refusee:'Refusées', terminee:'Terminées', annulee:'Annulées', tous:'Toutes les réservations' };
@@ -333,6 +791,7 @@
         adm.rows = res.data;
         renderAdmin();
       });
+    loadAdminSoums();
   }
 
   function renderAdmin(){
@@ -469,6 +928,7 @@
     t.addEventListener('click', function(){
       $$('[data-adm-tab]').forEach(function(x){ x.classList.toggle('active', x === t); });
       $$('[data-adm-panel]').forEach(function(p){ p.hidden = p.dataset.admPanel !== t.dataset.admTab; });
+      $('#adm-h1').textContent = { site:'Réservations', soumissions:'Soumissions', square:'Agenda Square' }[t.dataset.admTab];
       if(t.dataset.admTab === 'square' && !agendaLoaded){ agendaLoaded = true; loadAgenda(); }
     });
   });

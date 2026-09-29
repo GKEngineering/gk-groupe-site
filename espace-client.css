@@ -134,6 +134,41 @@
 .ec-toast a{color:#9db8ff;text-decoration:underline;}
 @keyframes ec-toast-in{from{opacity:0;transform:translate(-50%,12px);}}
 
+/* ── Soumissions ── */
+.soum-ask-card{margin-bottom:22px;border-color:var(--blue);}
+.soum-ask-actions{display:flex;align-items:center;gap:16px;}
+.soum-ask-actions .form-submit{width:auto;padding:14px 28px;margin-top:0;}
+.soum-desc{white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.adm-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--blue);color:#fff;font-size:11px;}
+.adm-tab-count[hidden]{display:none;}
+.as-editor{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+.as-table-wrap{overflow-x:auto;}
+.as-lines{width:100%;border-collapse:collapse;min-width:560px;}
+.as-lines th{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mono-grey);text-align:left;padding:0 6px 6px;}
+.as-lines td{padding:4px 6px 4px 0;vertical-align:middle;}
+.as-lines th:nth-child(2),.as-lines td:nth-child(2){width:80px;}
+.as-lines th:nth-child(3),.as-lines td:nth-child(3){width:120px;}
+.as-lines th:nth-child(4),.as-lines td:nth-child(4){width:110px;text-align:right;}
+.as-lines th:nth-child(5),.as-lines td:nth-child(5){width:34px;}
+.as-lines input{width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:8px;font:14px 'Inter',sans-serif;background:#fff;outline:none;}
+.as-lines input:focus{border-color:var(--blue);}
+.as-amount{font-family:'Space Grotesk',sans-serif;font-weight:700;white-space:nowrap;}
+.as-del{width:30px;height:30px;border-radius:50%;border:none;background:none;color:var(--mono-grey);font-size:20px;line-height:1;cursor:pointer;}
+.as-del:hover{background:#fde7e7;color:#c02626;}
+.as-bottom{display:grid;grid-template-columns:1fr 260px;gap:24px;margin-top:12px;align-items:start;}
+.as-opts .fg{margin-bottom:10px;}
+.as-opts textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;font:14px 'Inter',sans-serif;background:#fff;resize:vertical;outline:none;}
+.as-check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;margin-bottom:12px;cursor:pointer;}
+.as-check input{width:17px;height:17px;accent-color:var(--blue);}
+.as-totals{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px;}
+.as-totals div{display:flex;justify-content:space-between;gap:12px;}
+.as-totals span{color:var(--mono-grey);}
+.as-totals .as-grand{border-top:1px solid var(--line);padding-top:8px;margin-top:2px;font-size:16px;}
+.as-totals .as-grand span{color:var(--ink);font-weight:700;}
+.as-totals .as-grand b{color:var(--blue);font-family:'Space Grotesk',sans-serif;}
+.as-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+#as-list .ec-msg:empty{display:none;}
+
 /* ── Square : paiement et agenda ── */
 .ec-rdv{font-size:13.5px;font-weight:600;color:var(--blue-deep);margin-top:2px;}
 .ec-pay{background:var(--blue);color:#fff;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 8px 18px -8px rgba(22,87,255,.6);}
@@ -178,6 +213,7 @@
   .ec-auth-brand{padding:40px 24px;gap:30px;}
   .ec-grid2{grid-template-columns:1fr;}
   .adm-grid{grid-template-columns:1fr 1fr;}
+  .as-bottom{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
   .ec-main{padding:92px 16px 40px;}

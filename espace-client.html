@@ -185,9 +185,38 @@
 
     <!-- Documents -->
     <div class="ec-panel" data-panel="documents" hidden>
+      <div class="ec-card soum-ask-card" id="soum-ask" hidden>
+        <h3>Demander une soumission</h3>
+        <p class="ec-muted">Décrivez votre besoin : on vous prépare une soumission détaillée, disponible ici en PDF.</p>
+        <form id="form-soum" class="ec-form">
+          <div class="frow">
+            <div class="fg">
+              <label for="soum-service">Service</label>
+              <select id="soum-service" required>
+                <option value="livraison">📦 Livraison</option>
+                <option value="demenagement">🚚 Déménagement</option>
+                <option value="service_auto">🔧 Service auto</option>
+                <option value="detaillage">✨ Détaillage auto</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div class="fg"><label for="soum-date">Date souhaitée <span class="ec-muted">(optionnel)</span></label><input id="soum-date" type="date"></div>
+          </div>
+          <div id="soum-vehicule" hidden></div>
+          <div class="fg"><label for="soum-adresse">Adresse <span class="ec-muted">(optionnel)</span></label><input id="soum-adresse" type="text" autocomplete="street-address"></div>
+          <div class="fg"><label for="soum-desc">Description du besoin</label><textarea id="soum-desc" rows="4" required placeholder="Ex. : déménagement d'un 4½ au 2e étage vers Jonquière, environ 30 boîtes et 3 gros meubles."></textarea></div>
+          <div class="soum-ask-actions">
+            <button type="submit" class="form-submit">Envoyer la demande</button>
+            <button type="button" class="ec-textbtn" id="soum-cancel">Annuler</button>
+          </div>
+          <p class="ec-msg" id="soum-msg" role="status"></p>
+        </form>
+      </div>
+
       <div class="ec-card">
         <div class="ec-card-head">
           <h3>Soumissions &amp; factures</h3>
+          <button class="call-btn" id="btn-soum-ask"><span class="dot"></span>Demander une soumission</button>
           <div class="ec-chips">
             <button class="ec-chip active" data-doc-filter="tous">Tous</button>
             <button class="ec-chip" data-doc-filter="soumission">Soumissions</button>
@@ -225,14 +254,30 @@
     <div class="ec-hello">
       <div>
         <span class="eyebrow">Administration · <span id="adm-name"></span></span>
-        <h1>Réservations</h1>
+        <h1 id="adm-h1">Réservations</h1>
       </div>
       <button class="call-btn" id="adm-refresh">↻ Actualiser</button>
     </div>
 
     <div class="ec-tabs ec-tabs-main" role="tablist">
       <button class="ec-tab active" data-adm-tab="site" role="tab">Réservations du site</button>
+      <button class="ec-tab" data-adm-tab="soumissions" role="tab">Soumissions <span class="adm-tab-count" id="adm-soum-count" hidden></span></button>
       <button class="ec-tab" data-adm-tab="square" role="tab">Agenda Square</button>
+    </div>
+
+    <div class="ec-card" data-adm-panel="soumissions" hidden>
+      <div class="ec-card-head">
+        <h3 id="as-title">À compléter</h3>
+        <div class="ec-chips">
+          <button class="ec-chip active" data-as-filter="demandee">À compléter</button>
+          <button class="ec-chip" data-as-filter="envoyee">Envoyées</button>
+          <button class="ec-chip" data-as-filter="acceptee">Acceptées</button>
+          <button class="ec-chip" data-as-filter="refusee">Refusées</button>
+          <button class="ec-chip" data-as-filter="annulee">Annulées</button>
+          <button class="ec-chip" data-as-filter="tous">Toutes</button>
+        </div>
+      </div>
+      <div id="as-list" class="ec-list"></div>
     </div>
 
     <div class="ec-card" data-adm-panel="square" hidden>
