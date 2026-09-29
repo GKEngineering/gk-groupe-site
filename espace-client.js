@@ -147,9 +147,12 @@
     var meta = user.user_metadata || {};
     $('#hello-name').textContent = (meta.nom_complet || user.email).split(' ')[0];
     show('view-loading');
-    sb.from('profiles').select('is_admin').eq('id', user.id).maybeSingle().then(function(res){
+    sb.from('profiles').select('is_admin, nom_complet').eq('id', user.id).maybeSingle().then(function(res){
       if(state.user !== user) return;
-      if(res.data && res.data.is_admin){ show('view-admin'); loadAdmin(); return; }
+      if(res.data && res.data.is_admin){
+        $('#adm-name').textContent = res.data.nom_complet || user.email;
+        show('view-admin'); loadAdmin(); return;
+      }
       show('view-app');
       $('#resa-date').min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
       loadAll();
