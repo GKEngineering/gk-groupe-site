@@ -403,7 +403,7 @@
       'Votre réservation « ' + LABELS.service[r.service] + ' » du ' + fmtDate(r.date_souhaitee) +
       ' (' + LABELS.plage[r.plage_horaire] + ') est maintenant : ' + LABELS.resa[r.statut] + '.\n' +
       (message ? '\n' + message + '\n' : '') +
-      '\nSuivez vos réservations dans votre espace client : https://gkgroupeinc.com/espace-client.html\n\n' +
+      '\nSuivez vos réservations dans votre espace client : https://gkgroupeinc.com/espace-client\n\n' +
       'GK Groupe inc\n581-447-0086';
     return 'mailto:' + encodeURIComponent(c.email) +
       '?subject=' + encodeURIComponent('Votre réservation GK Groupe — ' + LABELS.resa[r.statut]) +
@@ -469,7 +469,7 @@
   bindTracking('#form-track-public', '#track-public-num', '#track-public-result');
   bindTracking('#form-track', '#track-num', '#track-result');
 
-  // Lien partagé du type espace-client.html?suivi=GKX-1042 : lance le suivi directement.
+  // Lien partagé du type espace-client?suivi=GKX-1042 : lance le suivi directement.
   var preset = new URLSearchParams(location.search).get('suivi');
   if(preset){ $('#track-public-num').value = preset; $('#track-num').value = preset; }
 
