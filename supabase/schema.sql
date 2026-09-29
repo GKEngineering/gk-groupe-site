@@ -62,6 +62,16 @@ alter table public.reservations drop constraint if exists reservations_statut_ch
 alter table public.reservations add constraint reservations_statut_check
   check (statut in ('en_attente','confirmee','refusee','terminee','annulee'));
 
+-- Square : paiement (lien Square Checkout) et rendez-vous dans l'agenda Square Appointments.
+-- Ces colonnes sont remplies uniquement par les fonctions supabase/functions/square*.
+alter table public.reservations add column if not exists paiement_montant  numeric(10,2);
+alter table public.reservations add column if not exists paiement_url      text;
+alter table public.reservations add column if not exists paiement_statut   text
+  check (paiement_statut in ('en_attente','payee'));
+alter table public.reservations add column if not exists square_order_id   text;
+alter table public.reservations add column if not exists square_booking_id text unique;
+alter table public.reservations add column if not exists rdv_debut         timestamptz;
+
 
 -- ── SOUMISSIONS ET FACTURES ─────────────────────────────────────
 -- fichier = chemin du PDF dans le bucket « documents », sous la forme

@@ -230,6 +230,20 @@
       <button class="call-btn" id="adm-refresh">↻ Actualiser</button>
     </div>
 
+    <div class="ec-tabs ec-tabs-main" role="tablist">
+      <button class="ec-tab active" data-adm-tab="site" role="tab">Réservations du site</button>
+      <button class="ec-tab" data-adm-tab="square" role="tab">Agenda Square</button>
+    </div>
+
+    <div class="ec-card" data-adm-panel="square" hidden>
+      <div class="ec-card-head">
+        <h3>Agenda Square — 30 prochains jours</h3>
+        <span class="ec-muted ec-small">Rendez-vous pris sur ta page Square et ceux ajoutés depuis le site.</span>
+      </div>
+      <div id="sq-agenda" class="ec-list"></div>
+    </div>
+
+    <div data-adm-panel="site">
     <div class="ec-stats">
       <button class="ec-stat" data-adm-filter="en_attente"><span class="ec-stat-num" id="adm-count-attente">–</span><span>À traiter</span></button>
       <button class="ec-stat" data-adm-filter="confirmee"><span class="ec-stat-num" id="adm-count-confirmee">–</span><span>Confirmées à venir</span></button>
@@ -249,6 +263,7 @@
         </div>
       </div>
       <div id="adm-list" class="ec-list"></div>
+    </div>
     </div>
   </section>
 

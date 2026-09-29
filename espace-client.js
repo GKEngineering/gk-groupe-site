@@ -190,11 +190,18 @@
       '<span class="ec-muted">' + esc(fmtDate(r.date_souhaitee)) + ' · ' + esc(LABELS.plage[r.plage_horaire]) + '</span>' +
       (vehiculeTexte(r) ? '<span class="ec-muted ec-small">🚗 ' + esc(vehiculeTexte(r)) + '</span>' : '') +
       '<span class="ec-muted ec-small">' + esc(r.adresse) + '</span>' +
+      (r.rdv_debut && r.statut === 'confirmee' ? '<span class="ec-rdv">📅 Rendez-vous : ' + esc(fmtRdv(r.rdv_debut)) + '</span>' : '') +
       (r.reponse_admin ? '<div class="ec-reply"><b>Message de GK Groupe</b>' + esc(r.reponse_admin) + '</div>' : '') +
       '</div>' +
       '<div class="ec-item-side">' + badge(r.statut, 'resa') +
+      (r.paiement_statut === 'payee' ? '<span class="ec-badge ec-ok">Payée ' + esc(fmtMoney(r.paiement_montant)) + '</span>'
+        : r.paiement_statut === 'en_attente' && r.paiement_url && r.statut !== 'annulee' && r.statut !== 'refusee'
+        ? '<a class="ec-pay" href="' + esc(r.paiement_url) + '" target="_blank" rel="noopener">Payer ' + esc(fmtMoney(r.paiement_montant)) + '</a>' : '') +
       (withCancel && r.statut === 'en_attente' ? '<button class="ec-textbtn ec-danger" data-cancel="' + esc(r.id) + '">Annuler</button>' : '') +
       '</div></div>';
+  }
+  function fmtRdv(d){
+    return new Date(d).toLocaleString('fr-CA', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
   }
   document.addEventListener('click', function(e){
     var cancel = e.target.closest('[data-cancel]');
@@ -359,6 +366,7 @@
       '</div>' +
       (r.details ? '<p class="adm-details">« ' + esc(r.details) + ' »</p>' : '') +
       (r.reponse_admin ? '<div class="ec-reply"><b>Votre dernier message' + (r.repondu_at ? ' (' + esc(fmtDateTime(r.repondu_at)) + ')' : '') + '</b>' + esc(r.reponse_admin) + '</div>' : '') +
+      admSquare(r) +
       '<div class="adm-reply">' +
         '<textarea rows="2" placeholder="Message au client (optionnel) — ex. : Confirmé pour 9h, on vous appelle la veille."></textarea>' +
         '<div class="adm-actions">' + actions + '<button class="adm-btn" data-adm-action="message">Envoyer le message</button></div>' +
@@ -367,10 +375,164 @@
     '</div>';
   }
 
+  /* ── Square : paiement + agenda ── */
+  function isOpenResa(r){ return r.statut !== 'annulee' && r.statut !== 'refusee'; }
+
+  function admSquare(r){
+    var pay;
+    if(r.paiement_statut === 'payee'){
+      pay = '<span class="ec-badge ec-ok">💳 Payée · ' + esc(fmtMoney(r.paiement_montant)) + '</span>';
+    } else if(r.paiement_url){
+      pay = '<span class="ec-badge ec-warn">💳 Paiement en attente · ' + esc(fmtMoney(r.paiement_montant)) + '</span>' +
+            '<button class="ec-textbtn" data-sq="copy" data-url="' + esc(r.paiement_url) + '">Copier le lien</button>';
+    } else if(isOpenResa(r)){
+      pay = '<div class="sq-inline"><input type="number" min="1" step="0.01" placeholder="Montant $" data-sq-montant>' +
+            '<button class="adm-btn" data-sq="pay">💳 Demander le paiement</button></div>';
+    } else pay = '';
+
+    var agenda;
+    if(r.square_booking_id){
+      agenda = '<span class="ec-badge ec-info">📅 Agenda Square · ' + esc(r.rdv_debut ? fmtRdv(r.rdv_debut) : 'ajouté') + '</span>';
+    } else if(isOpenResa(r) && r.statut !== 'terminee'){
+      agenda = '<button class="adm-btn" data-sq="book-open">📅 Ajouter à l\'agenda Square</button>' +
+        '<div class="sq-book" hidden>' +
+          '<div class="fg"><label>Date et heure</label><input type="datetime-local" data-sq-start value="' + esc(r.date_souhaitee + 'T' + ({ matin:'09:00', apres_midi:'13:00', soir:'17:00' }[r.plage_horaire] || '09:00')) + '"></div>' +
+          '<div class="fg"><label>Service Square</label><select data-sq-service><option value="">Chargement…</option></select></div>' +
+          '<div class="fg"><label>Employé</label><select data-sq-member></select></div>' +
+          '<button class="adm-btn adm-ok" data-sq="book">Créer le rendez-vous</button>' +
+        '</div>';
+    } else agenda = '';
+
+    if(!pay && !agenda) return '';
+    return '<div class="sq-box"><span class="adm-k">Square</span><div class="sq-row">' + pay + agenda + '</div><p class="ec-msg sq-msg" role="status"></p></div>';
+  }
+
+  // Appel de la fonction serveur « square » ; renvoie le message d'erreur lisible s'il y en a un.
+  function callSquare(body){
+    return sb.functions.invoke('square', { body: body }).then(function(res){
+      if(!res.error) return res.data;
+      var ctx = res.error.context;
+      var read = ctx && typeof ctx.json === 'function' ? ctx.json().catch(function(){ return {}; }) : Promise.resolve({});
+      return read.then(function(b){
+        throw new Error(b.error || (/Failed to send|NetworkError|Failed to fetch/i.test(res.error.message)
+          ? 'Connexion à Square non configurée (fonction « square » non déployée).' : res.error.message));
+      });
+    });
+  }
+
+  var sqCatalog = null;
+  function loadCatalog(){
+    if(!sqCatalog) sqCatalog = callSquare({ action:'catalog' }).catch(function(err){ sqCatalog = null; throw err; });
+    return sqCatalog;
+  }
+  function fillMembers(item, services){
+    var sel = item.querySelector('[data-sq-service]');
+    var svc = services.filter(function(s){ return s.id === sel.value; })[0];
+    var members = item._members.filter(function(m){ return !svc || !svc.team_member_ids.length || svc.team_member_ids.indexOf(m.id) !== -1; });
+    item.querySelector('[data-sq-member]').innerHTML = members.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join('')
+      || '<option value="">Aucun employé réservable</option>';
+  }
+
+  $('#adm-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-sq]');
+    if(!btn) return;
+    var item = btn.closest('.adm-item');
+    var r = adm.rows.filter(function(x){ return x.id === item.dataset.id; })[0];
+    var msg = item.querySelector('.sq-msg');
+    var kind = btn.dataset.sq;
+
+    if(kind === 'copy'){
+      navigator.clipboard.writeText(btn.dataset.url).then(function(){ setMsg(msg, 'Lien copié.'); });
+      return;
+    }
+    if(kind === 'book-open'){
+      var box = item.querySelector('.sq-book');
+      box.hidden = !box.hidden;
+      if(box.hidden) return;
+      loadCatalog().then(function(cat){
+        item._members = cat.members;
+        var sel = item.querySelector('[data-sq-service]');
+        sel.innerHTML = cat.services.length
+          ? cat.services.map(function(s){ return '<option value="' + esc(s.id) + '">' + esc(s.name) + ' (' + s.duration_minutes + ' min)</option>'; }).join('')
+          : '<option value="">Aucun service dans Square Appointments</option>';
+        sel.onchange = function(){ fillMembers(item, cat.services); };
+        fillMembers(item, cat.services);
+      }).catch(function(err){ setMsg(msg, err.message, true); });
+      return;
+    }
+
+    var call;
+    if(kind === 'pay'){
+      var montant = parseFloat(item.querySelector('[data-sq-montant]').value);
+      if(!(montant >= 1)){ setMsg(msg, 'Entrez un montant (1 $ minimum).', true); return; }
+      call = callSquare({ action:'payment_link', reservation_id:r.id, montant:montant });
+    } else if(kind === 'book'){
+      var start = item.querySelector('[data-sq-start]').value;
+      var svcId = item.querySelector('[data-sq-service]').value;
+      var member = item.querySelector('[data-sq-member]').value;
+      if(!start || !svcId || !member){ setMsg(msg, 'Choisissez la date, le service et l\'employé.', true); return; }
+      call = loadCatalog().then(function(cat){
+        var svc = cat.services.filter(function(s){ return s.id === svcId; })[0];
+        return callSquare({ action:'create_booking', reservation_id:r.id, start_at:new Date(start).toISOString(),
+          service_variation_id:svc.id, service_variation_version:svc.version, team_member_id:member, duration_minutes:svc.duration_minutes });
+      });
+    } else return;
+
+    $$('button', item).forEach(function(b){ b.disabled = true; });
+    setMsg(msg, 'Connexion à Square…');
+    call.then(function(patch){
+      for(var k in patch) r[k] = patch[k];
+      renderAdmin();
+      showToast(kind === 'pay' ? 'Lien de paiement créé — le client voit le bouton « Payer » dans son espace.'
+                               : 'Rendez-vous ajouté à l\'agenda Square.', kind === 'pay' ? '' : mailtoClient(r, ''));
+    }).catch(function(err){
+      setMsg(msg, err.message, true);
+      $$('button', item).forEach(function(b){ b.disabled = false; });
+    });
+  });
+
+  /* Onglet « Agenda Square » */
+  var SQ_STATUS = { PENDING:['En attente','warn'], ACCEPTED:['Confirmé','ok'], CANCELLED_BY_CUSTOMER:['Annulé (client)','bad'],
+    CANCELLED_BY_SELLER:['Annulé','bad'], DECLINED:['Refusé','bad'], NO_SHOW:['Absent','muted'] };
+  function loadAgenda(){
+    var out = $('#sq-agenda');
+    out.innerHTML = '<div class="ec-spinner"></div>';
+    callSquare({ action:'list_bookings' }).then(function(res){
+      if(!res.bookings.length){ out.innerHTML = empty('Aucun rendez-vous dans les 30 prochains jours.'); return; }
+      var day = '';
+      out.innerHTML = res.bookings.map(function(b){
+        var d = new Date(b.start_at);
+        var label = d.toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' });
+        var head = label !== day ? '<h4 class="sq-day">' + esc(label) + '</h4>' : '';
+        day = label;
+        var st = SQ_STATUS[b.status] || [b.status, 'muted'];
+        return head + '<div class="ec-item">' +
+          '<div class="ec-item-main"><strong>' + esc(d.toLocaleTimeString('fr-CA', { hour:'2-digit', minute:'2-digit' })) + ' · ' + esc(b.service) + '</strong>' +
+          '<span class="ec-muted">' + esc(b.client.nom) + (b.client.telephone ? ' · <a class="ec-link" href="tel:' + esc(b.client.telephone) + '">' + esc(b.client.telephone) + '</a>' : '') + '</span>' +
+          (b.note ? '<span class="ec-muted ec-small sq-note">' + esc(b.note) + '</span>' : '') + '</div>' +
+          '<div class="ec-item-side"><span class="sq-src sq-src-' + b.source + '">' + (b.source === 'site' ? 'Site' : 'Square') + '</span>' +
+          '<span class="ec-muted ec-small">' + esc(b.duration_minutes) + ' min</span>' +
+          '<span class="ec-badge ec-' + st[1] + '">' + esc(st[0]) + '</span></div></div>';
+      }).join('');
+    }).catch(function(err){ out.innerHTML = empty(err.message); });
+  }
+
+  var agendaLoaded = false;
+  $$('[data-adm-tab]').forEach(function(t){
+    t.addEventListener('click', function(){
+      $$('[data-adm-tab]').forEach(function(x){ x.classList.toggle('active', x === t); });
+      $$('[data-adm-panel]').forEach(function(p){ p.hidden = p.dataset.admPanel !== t.dataset.admTab; });
+      if(t.dataset.admTab === 'square' && !agendaLoaded){ agendaLoaded = true; loadAgenda(); }
+    });
+  });
+
   $$('[data-adm-filter]').forEach(function(b){
     b.addEventListener('click', function(){ adm.filter = b.dataset.admFilter; renderAdmin(); });
   });
-  $('#adm-refresh').addEventListener('click', loadAdmin);
+  $('#adm-refresh').addEventListener('click', function(){
+    loadAdmin();
+    if(agendaLoaded) loadAgenda();
+  });
 
   $('#adm-list').addEventListener('click', function(e){
     var btn = e.target.closest('[data-adm-action]');
@@ -481,6 +643,11 @@
   if(location.hash === '#inscription') $('[data-auth-tab=signup]').click();
   // Lien espace-client#reserver (boutons « Réserver en ligne » du site) : après connexion, ouvre l'onglet Réservations.
   if(location.hash === '#reserver') setMsg($('#auth-msg'), 'Connectez-vous ou créez un compte pour réserver en ligne.');
+  // Retour de la page de paiement Square (redirect_url défini dans supabase/functions/square).
+  if(new URLSearchParams(location.search).get('paiement') === 'merci'){
+    showToast('Merci ! Votre paiement a bien été reçu.', '');
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
 
   sb.auth.getSession().then(function(res){
     if(recovering) return;
