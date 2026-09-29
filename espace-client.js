@@ -375,7 +375,8 @@
     '</div>';
   }
 
-  /* ── Square : paiement + agenda ── */
+  /* ── Square : paiement ──
+     L'ajout de RDV dans l'agenda Square demande Appointments Plus/Premium : on les ajoute à la main dans Square. */
   function isOpenResa(r){ return r.statut !== 'annulee' && r.statut !== 'refusee'; }
 
   function admSquare(r){
@@ -388,23 +389,8 @@
     } else if(isOpenResa(r)){
       pay = '<div class="sq-inline"><input type="number" min="1" step="0.01" placeholder="Montant $" data-sq-montant>' +
             '<button class="adm-btn" data-sq="pay">💳 Demander le paiement</button></div>';
-    } else pay = '';
-
-    var agenda;
-    if(r.square_booking_id){
-      agenda = '<span class="ec-badge ec-info">📅 Agenda Square · ' + esc(r.rdv_debut ? fmtRdv(r.rdv_debut) : 'ajouté') + '</span>';
-    } else if(isOpenResa(r) && r.statut !== 'terminee'){
-      agenda = '<button class="adm-btn" data-sq="book-open">📅 Ajouter à l\'agenda Square</button>' +
-        '<div class="sq-book" hidden>' +
-          '<div class="fg"><label>Date et heure</label><input type="datetime-local" data-sq-start value="' + esc(r.date_souhaitee + 'T' + ({ matin:'09:00', apres_midi:'13:00', soir:'17:00' }[r.plage_horaire] || '09:00')) + '"></div>' +
-          '<div class="fg"><label>Service Square</label><select data-sq-service><option value="">Chargement…</option></select></div>' +
-          '<div class="fg"><label>Employé</label><select data-sq-member></select></div>' +
-          '<button class="adm-btn adm-ok" data-sq="book">Créer le rendez-vous</button>' +
-        '</div>';
-    } else agenda = '';
-
-    if(!pay && !agenda) return '';
-    return '<div class="sq-box"><span class="adm-k">Square</span><div class="sq-row">' + pay + agenda + '</div><p class="ec-msg sq-msg" role="status"></p></div>';
+    } else return '';
+    return '<div class="sq-box"><span class="adm-k">Paiement Square</span><div class="sq-row">' + pay + '</div><p class="ec-msg sq-msg" role="status"></p></div>';
   }
 
   // Appel de la fonction serveur « square » ; renvoie le message d'erreur lisible s'il y en a un.
@@ -420,71 +406,26 @@
     });
   }
 
-  var sqCatalog = null;
-  function loadCatalog(){
-    if(!sqCatalog) sqCatalog = callSquare({ action:'catalog' }).catch(function(err){ sqCatalog = null; throw err; });
-    return sqCatalog;
-  }
-  function fillMembers(item, services){
-    var sel = item.querySelector('[data-sq-service]');
-    var svc = services.filter(function(s){ return s.id === sel.value; })[0];
-    var members = item._members.filter(function(m){ return !svc || !svc.team_member_ids.length || svc.team_member_ids.indexOf(m.id) !== -1; });
-    item.querySelector('[data-sq-member]').innerHTML = members.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join('')
-      || '<option value="">Aucun employé réservable</option>';
-  }
-
   $('#adm-list').addEventListener('click', function(e){
     var btn = e.target.closest('[data-sq]');
     if(!btn) return;
     var item = btn.closest('.adm-item');
     var r = adm.rows.filter(function(x){ return x.id === item.dataset.id; })[0];
     var msg = item.querySelector('.sq-msg');
-    var kind = btn.dataset.sq;
 
-    if(kind === 'copy'){
+    if(btn.dataset.sq === 'copy'){
       navigator.clipboard.writeText(btn.dataset.url).then(function(){ setMsg(msg, 'Lien copié.'); });
       return;
     }
-    if(kind === 'book-open'){
-      var box = item.querySelector('.sq-book');
-      box.hidden = !box.hidden;
-      if(box.hidden) return;
-      loadCatalog().then(function(cat){
-        item._members = cat.members;
-        var sel = item.querySelector('[data-sq-service]');
-        sel.innerHTML = cat.services.length
-          ? cat.services.map(function(s){ return '<option value="' + esc(s.id) + '">' + esc(s.name) + ' (' + s.duration_minutes + ' min)</option>'; }).join('')
-          : '<option value="">Aucun service dans Square Appointments</option>';
-        sel.onchange = function(){ fillMembers(item, cat.services); };
-        fillMembers(item, cat.services);
-      }).catch(function(err){ setMsg(msg, err.message, true); });
-      return;
-    }
-
-    var call;
-    if(kind === 'pay'){
-      var montant = parseFloat(item.querySelector('[data-sq-montant]').value);
-      if(!(montant >= 1)){ setMsg(msg, 'Entrez un montant (1 $ minimum).', true); return; }
-      call = callSquare({ action:'payment_link', reservation_id:r.id, montant:montant });
-    } else if(kind === 'book'){
-      var start = item.querySelector('[data-sq-start]').value;
-      var svcId = item.querySelector('[data-sq-service]').value;
-      var member = item.querySelector('[data-sq-member]').value;
-      if(!start || !svcId || !member){ setMsg(msg, 'Choisissez la date, le service et l\'employé.', true); return; }
-      call = loadCatalog().then(function(cat){
-        var svc = cat.services.filter(function(s){ return s.id === svcId; })[0];
-        return callSquare({ action:'create_booking', reservation_id:r.id, start_at:new Date(start).toISOString(),
-          service_variation_id:svc.id, service_variation_version:svc.version, team_member_id:member, duration_minutes:svc.duration_minutes });
-      });
-    } else return;
+    var montant = parseFloat(item.querySelector('[data-sq-montant]').value);
+    if(!(montant >= 1)){ setMsg(msg, 'Entrez un montant (1 $ minimum).', true); return; }
 
     $$('button', item).forEach(function(b){ b.disabled = true; });
     setMsg(msg, 'Connexion à Square…');
-    call.then(function(patch){
+    callSquare({ action:'payment_link', reservation_id:r.id, montant:montant }).then(function(patch){
       for(var k in patch) r[k] = patch[k];
       renderAdmin();
-      showToast(kind === 'pay' ? 'Lien de paiement créé — le client voit le bouton « Payer » dans son espace.'
-                               : 'Rendez-vous ajouté à l\'agenda Square.', kind === 'pay' ? '' : mailtoClient(r, ''));
+      showToast('Lien de paiement créé — le client voit le bouton « Payer » dans son espace.', '');
     }).catch(function(err){
       setMsg(msg, err.message, true);
       $$('button', item).forEach(function(b){ b.disabled = false; });

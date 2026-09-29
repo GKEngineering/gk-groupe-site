@@ -4,10 +4,8 @@
 //
 //  Actions (POST JSON { action, ... }) :
 //    payment_link  { reservation_id, montant, description? }  → crée un lien de paiement Square
-//    catalog       {}                                          → services Square Appointments
-//    create_booking{ reservation_id, start_at, service_variation_id, service_variation_version,
-//                    team_member_id, duration_minutes }        → ajoute le RDV dans l'agenda Square
 //    list_bookings { start_at_min?, start_at_max? }            → RDV de l'agenda Square (31 jours max)
+//  (L'ajout de RDV dans Square demande Appointments Plus/Premium : non utilisé, forfait gratuit.)
 //
 //  Secrets (Supabase > Edge Functions > Secrets) :
 //    SQUARE_ACCESS_TOKEN, SQUARE_LOCATION_ID, SQUARE_ENV (« production » ou « sandbox »)
@@ -55,28 +53,6 @@ async function square(path: string, init: { method?: string; body?: unknown } = 
     throw new HttpError(502, `Square : ${detail || res.statusText}`);
   }
   return data;
-}
-
-// Client Square correspondant au courriel du client (créé s'il n'existe pas).
-async function findOrCreateCustomer(email: string, nom: string, telephone: string) {
-  const found = await square('/v2/customers/search', {
-    method: 'POST',
-    body: { query: { filter: { email_address: { exact: email } } }, limit: 1 },
-  });
-  if (found.customers?.length) return found.customers[0].id as string;
-  const [prenom, ...reste] = (nom || '').trim().split(/\s+/);
-  const created = await square('/v2/customers', {
-    method: 'POST',
-    body: {
-      idempotency_key: crypto.randomUUID(),
-      email_address: email,
-      given_name: prenom || undefined,
-      family_name: reste.join(' ') || undefined,
-      phone_number: telephone || undefined,
-      reference_id: 'gk-site',
-    },
-  });
-  return created.customer.id as string;
 }
 
 Deno.serve(async (req) => {
@@ -127,62 +103,6 @@ Deno.serve(async (req) => {
           paiement_statut: 'en_attente',
           square_order_id: out.payment_link.order_id,
         };
-        await admin.from('reservations').update(patch).eq('id', r.id);
-        return json(patch);
-      }
-
-      case 'catalog': {
-        const [items, team] = await Promise.all([
-          square('/v2/catalog/search-catalog-items', {
-            method: 'POST', body: { product_types: ['APPOINTMENTS_SERVICE'], limit: 100 },
-          }),
-          square('/v2/bookings/team-member-booking-profiles?bookable_only=true&limit=100'),
-        ]);
-        const services = (items.items ?? []).flatMap((it: any) =>
-          (it.item_data?.variations ?? []).map((v: any) => ({
-            id: v.id,
-            version: v.version,
-            name: it.item_data.variations.length > 1 ? `${it.item_data.name} — ${v.item_variation_data?.name}` : it.item_data.name,
-            duration_minutes: Math.round((v.item_variation_data?.service_duration ?? 3600000) / 60000),
-            team_member_ids: v.item_variation_data?.team_member_ids ?? [],
-          })));
-        const members = (team.team_member_booking_profiles ?? []).map((m: any) => ({
-          id: m.team_member_id, name: m.display_name,
-        }));
-        return json({ services, members });
-      }
-
-      case 'create_booking': {
-        const r = await loadReservation(body.reservation_id);
-        if (r.square_booking_id) throw new HttpError(409, 'Déjà dans l\'agenda Square.');
-        if (!r.profiles?.email) throw new HttpError(400, 'Le client n\'a pas de courriel.');
-        const customerId = await findOrCreateCustomer(r.profiles.email, r.profiles.nom_complet, r.profiles.telephone);
-        const vehicule = [r.vehicule_marque, r.vehicule_modele, r.vehicule_annee].filter(Boolean).join(' ');
-        const note = [
-          `Réservation du site (${SERVICE_LABELS[r.service] ?? r.service})`,
-          `Adresse : ${r.adresse}`,
-          vehicule && `Véhicule : ${vehicule}`,
-          r.details && `Détails : ${r.details}`,
-        ].filter(Boolean).join('\n');
-        const out = await square('/v2/bookings', {
-          method: 'POST',
-          body: {
-            idempotency_key: crypto.randomUUID(),
-            booking: {
-              start_at: new Date(body.start_at).toISOString(),
-              location_id: LOCATION_ID,
-              customer_id: customerId,
-              customer_note: note.slice(0, 4096),
-              appointment_segments: [{
-                duration_minutes: Number(body.duration_minutes) || 60,
-                service_variation_id: body.service_variation_id,
-                service_variation_version: Number(body.service_variation_version),
-                team_member_id: body.team_member_id,
-              }],
-            },
-          },
-        });
-        const patch = { square_booking_id: out.booking.id, rdv_debut: out.booking.start_at, statut: 'confirmee' };
         await admin.from('reservations').update(patch).eq('id', r.id);
         return json(patch);
       }
