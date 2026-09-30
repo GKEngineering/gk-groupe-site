@@ -138,6 +138,7 @@
 .soum-ask-card{margin-bottom:22px;border-color:var(--blue);}
 .soum-ask-actions{display:flex;align-items:center;gap:16px;}
 .soum-ask-actions .form-submit{width:auto;padding:14px 28px;margin-top:0;}
+.ec-form .soum-ask-actions .ec-textbtn{display:inline-block;margin:0;}
 .soum-desc{white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
 .adm-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--blue);color:#fff;font-size:11px;}
 .adm-tab-count[hidden]{display:none;}
@@ -168,6 +169,13 @@
 .as-totals .as-grand b{color:var(--blue);font-family:'Space Grotesk',sans-serif;}
 .as-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
 #as-list .ec-msg:empty{display:none;}
+
+/* ── Factures + réservation créée par l'admin ── */
+.af-hint{margin:-2px 0 6px;}
+.adm-toolbar{display:flex;justify-content:flex-end;margin-bottom:16px;}
+.adm-new-card{margin-bottom:22px;border-color:var(--blue);}
+.frow3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.frow3[hidden]{display:none;}
 
 /* ── Square : paiement et agenda ── */
 .ec-rdv{font-size:13.5px;font-weight:600;color:var(--blue-deep);margin-top:2px;}
@@ -214,6 +222,7 @@
   .ec-grid2{grid-template-columns:1fr;}
   .adm-grid{grid-template-columns:1fr 1fr;}
   .as-bottom{grid-template-columns:1fr;}
+  .frow3{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
   .ec-main{padding:92px 16px 40px;}

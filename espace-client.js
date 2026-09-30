@@ -2,6 +2,8 @@
 (function(){
   var cfg = window.GK_SUPABASE || {};
   var WEB3FORMS_KEY = '7e12bb33-bec8-47ed-9c49-5411d79c59ed';
+  // Numéros d'inscription aux taxes, imprimés sur les soumissions et factures PDF (laisser vide pour les masquer).
+  var ENTREPRISE = { tps: '', tvq: '' };
 
   var LABELS = {
     service: { livraison:'Livraison', demenagement:'Déménagement', service_auto:'Service auto', detaillage:'Détaillage auto', autre:'Autre' },
@@ -167,7 +169,7 @@
   $$('[data-tab]').forEach(function(b){ b.addEventListener('click', function(){ goTab(b.dataset.tab); }); });
   $$('[data-go]').forEach(function(b){ b.addEventListener('click', function(){ goTab(b.dataset.go); }); });
 
-  function loadAll(){ loadReservations(); loadDocuments(); loadSoumissions(); loadLivraisons(); }
+  function loadAll(){ loadReservations(); loadDocuments(); loadSoumissions(); loadFactures(); loadLivraisons(); }
 
   /* Réservations */
   function loadReservations(){
@@ -285,16 +287,16 @@
     sb.from('documents').select('*').order('date_doc', { ascending:false }).then(function(res){
       if(res.error){ $('#doc-list').innerHTML = empty('Impossible de charger vos documents.'); return; }
       state.docs = res.data;
-      $('#stat-docs').textContent = res.data.filter(function(d){
-        return d.type === 'facture' && (d.statut === 'envoyee' || d.statut === 'en_retard');
-      }).length;
+      updateFactStat();
       renderDocs();
     });
   }
   function renderDocs(){
     var rows = state.docs.filter(function(d){ return state.docFilter === 'tous' || d.type === state.docFilter; });
     var soums = state.docFilter === 'facture' ? [] : state.soums;
-    $('#doc-list').innerHTML = rows.length || soums.length ? soums.map(soumItemClient).join('') + rows.map(function(d){
+    var facts = state.docFilter === 'soumission' ? [] : state.facts;
+    $('#doc-list').innerHTML = rows.length || soums.length || facts.length ?
+      facts.map(factItemClient).join('') + soums.map(soumItemClient).join('') + rows.map(function(d){
       return '<div class="ec-item">' +
         '<div class="ec-item-main"><strong>' + esc(d.titre) + '</strong>' +
         '<span class="ec-muted">' + (d.type === 'facture' ? 'Facture' : 'Soumission') + ' n° ' + esc(d.numero) + ' · ' + esc(fmtDate(d.date_doc)) + '</span></div>' +
@@ -331,6 +333,7 @@
   state.soums = [];
 
   function soumNumero(s){ return 'S-' + new Date(s.created_at).getFullYear() + '-' + String(s.numero).padStart(4, '0'); }
+  function factureNumero(f){ return 'F-' + new Date(f.created_at).getFullYear() + '-' + String(f.numero).padStart(4, '0'); }
   function round2(n){ return Math.round(n * 100) / 100; }
   function soumTotaux(lignes, taxes){
     var st = round2(lignes.reduce(function(t, l){ return t + (Number(l.quantite) || 0) * (Number(l.prix) || 0); }, 0));
@@ -408,7 +411,7 @@
     var exp = soumExpiree(s);
     return '<div class="ec-item" data-soum="' + esc(s.id) + '">' +
       '<div class="ec-item-main"><strong>Soumission ' + esc(soumNumero(s)) + ' · ' + esc(LABELS.service[s.service]) + '</strong>' +
-        '<span class="ec-muted">Demandée le ' + esc(fmtDate(s.created_at.slice(0, 10))) +
+        '<span class="ec-muted">Demandée le ' + esc(fmtDate(s.created_at)) +
           (s.valide_jusqu && s.statut === 'envoyee' ? ' · valide jusqu\'au ' + esc(fmtDate(s.valide_jusqu)) : '') + '</span>' +
         '<span class="ec-muted ec-small soum-desc">' + esc(s.description) + '</span>' +
         (s.note_admin && s.statut !== 'demandee' ? '<div class="ec-reply"><b>Note de GK Groupe</b>' + esc(s.note_admin) + '</div>' : '') +
@@ -489,34 +492,44 @@
     return (n < 0 ? '-' : '') + parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ',' + parts[1] + ' $';
   }
 
-  function downloadSoumPdf(s, client){
+  // kind : 'soumission' (défaut) ou 'facture'. Pour une facture, s = ligne de la table factures.
+  function downloadSoumPdf(s, client, kind){
+    var isF = kind === 'facture';
+    if(isF) s = Object.assign({}, s, { description: s.titre, note_admin: s.note, valide_jusqu: null });
     return loadPdfTools().then(function(logo){
       var doc = new window.jspdf.jsPDF({ unit:'pt', format:'letter' });
       var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 48;
       var t = soumTotaux(s.lignes || [], s.taxes);
       var c = client || {};
+      var numero = isF ? factureNumero(s) : soumNumero(s);
 
       // En-tête
       if(logo) doc.addImage(logo, 'PNG', M, 40, 128, 48);
       else { doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(22); doc.setTextColor(22, 87, 255); doc.text('GK Groupe inc', M, 72); }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(10, 14, 26);
-      doc.text('SOUMISSION', W - M, 58, { align:'right' });
+      doc.text(isF ? 'FACTURE' : 'SOUMISSION', W - M, 58, { align:'right' });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
-      var info = ['N° ' + soumNumero(s), 'Date : ' + fmtDate((s.envoyee_at || new Date().toISOString()).slice(0, 10))];
+      var info = ['N° ' + numero, 'Date : ' + fmtDate(s.envoyee_at || new Date().toISOString())];
       if(s.valide_jusqu) info.push('Valide jusqu\'au : ' + fmtDate(s.valide_jusqu));
+      if(isF && s.date_echeance) info.push('Échéance : ' + fmtDate(s.date_echeance));
+      if(isF && s._refSoumission) info.push('Réf. soumission : ' + s._refSoumission);
       doc.text(info.map(pdfText), W - M, 76, { align:'right', lineHeightFactor:1.5 });
 
-      doc.setDrawColor(22, 87, 255); doc.setLineWidth(2); doc.line(M, 122, W - M, 122);
+      var lineY = Math.max(122, 76 + (info.length - 1) * 15 + 18);
+      doc.setDrawColor(22, 87, 255); doc.setLineWidth(2); doc.line(M, lineY, W - M, lineY);
 
       // De / Préparée pour
-      var y = 146;
+      var y = lineY + 24;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(22, 87, 255);
-      doc.text('DE', M, y); doc.text(pdfText('PRÉPARÉE POUR'), W / 2, y);
+      doc.text('DE', M, y); doc.text(pdfText(isF ? 'FACTURÉ À' : 'PRÉPARÉE POUR'), W / 2, y);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(10, 14, 26);
-      doc.text(['GK Groupe inc', '581-447-0086', 'gestion@gkgroupeinc.com', 'gkgroupeinc.com'], M, y + 16, { lineHeightFactor:1.45 });
+      var de = ['GK Groupe inc', '581-447-0086', 'gestion@gkgroupeinc.com', 'gkgroupeinc.com'];
+      if(ENTREPRISE.tps) de.push('TPS : ' + ENTREPRISE.tps);
+      if(ENTREPRISE.tvq) de.push('TVQ : ' + ENTREPRISE.tvq);
+      doc.text(de.map(pdfText), M, y + 16, { lineHeightFactor:1.45 });
       var dest = [c.nom_complet || c.email || 'Client', c.email, c.telephone, s.adresse].filter(Boolean).map(pdfText);
       doc.text(doc.splitTextToSize(dest.join('\n'), W / 2 - M), W / 2, y + 16, { lineHeightFactor:1.45 });
-      y += 16 + Math.max(4, dest.length) * 14.5 + 14;
+      y += 16 + Math.max(de.length, dest.length) * 14.5 + 14;
 
       // Objet de la demande
       var objet = [LABELS.service[s.service], soumVehiculeTexte(s) && 'Véhicule : ' + soumVehiculeTexte(s),
@@ -550,6 +563,7 @@
       var rows = [['Sous-total', pdfMoney(t.sousTotal)]];
       if(s.taxes){ rows.push(['TPS (5 %)', pdfMoney(t.tps)]); rows.push(['TVQ (9,975 %)', pdfMoney(t.tvq)]); }
       if(y + rows.length * 18 + 40 > H - 60){ doc.addPage(); y = 60; }
+      var yTot = y, pageTot = doc.getNumberOfPages();
       doc.setFontSize(10);
       rows.forEach(function(r){
         doc.setFont('helvetica', 'normal'); doc.setTextColor(107, 114, 128); doc.text(r[0], W - M - 150, y);
@@ -572,7 +586,19 @@
       }
       if(y + 30 > H - 60){ doc.addPage(); y = 60; }
       doc.setFontSize(9.5); doc.setTextColor(107, 114, 128);
-      doc.text(pdfText('Pour accepter cette soumission : connectez-vous à votre espace client sur gkgroupeinc.com/espace-client.'), M, y);
+      doc.text(pdfText(isF
+        ? 'Merci de votre confiance ! Pour toute question sur cette facture : 581-447-0086 ou gestion@gkgroupeinc.com.'
+        : 'Pour accepter cette soumission : connectez-vous à votre espace client sur gkgroupeinc.com/espace-client.'), M, y);
+
+      // Tampon « PAYÉE » sur une facture réglée
+      if(isF && s.statut === 'payee'){
+        doc.setPage(pageTot);
+        doc.setDrawColor(18, 129, 63); doc.setLineWidth(2.5); doc.setTextColor(18, 129, 63);
+        doc.roundedRect(M, yTot - 12, 150, 48, 6, 6, 'S');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+        doc.text(pdfText('PAYÉE'), M + 75, yTot + 14, { align:'center' });
+        if(s.payee_at){ doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.text(pdfText('le ' + fmtDate(s.payee_at)), M + 75, yTot + 28, { align:'center' }); }
+      }
 
       // Pied de page
       for(var i = 1, n = doc.getNumberOfPages(); i <= n; i++){
@@ -582,7 +608,7 @@
         doc.text(pdfText('GK Groupe inc · 581-447-0086 · gestion@gkgroupeinc.com · gkgroupeinc.com'), M, H - 28);
         doc.text('Page ' + i + ' / ' + n, W - M, H - 28, { align:'right' });
       }
-      doc.save('Soumission-' + soumNumero(s) + '.pdf');
+      doc.save((isF ? 'Facture-' : 'Soumission-') + numero + '.pdf');
     });
   }
 
@@ -642,6 +668,7 @@
       var t = soumTotaux(s.lignes || [], s.taxes);
       body = '<div class="as-summary">' +
         (s.lignes && s.lignes.length ? '<span class="ec-amount">' + esc(fmtMoney(t.total)) + '</span><button class="adm-btn" data-as="pdf">PDF ↓</button>' : '') +
+        (s.statut === 'acceptee' ? soumFactureAction(s) : '') +
         (s.statut !== 'acceptee' ? '<button class="adm-btn adm-bad" data-as="delete">🗑 Supprimer</button>' : '') +
         (s.repondue_at ? '<span class="ec-muted ec-small">Réponse du client le ' + esc(fmtDateTime(s.repondue_at)) + '</span>' : '') +
         '</div><p class="ec-msg" role="status"></p>';
@@ -738,6 +765,17 @@
       return;
     }
 
+    if(kind === 'goto-facture'){ openFacturesTab(btn.dataset.statut); return; }
+    if(kind === 'facture'){
+      btn.disabled = true;
+      creerFacture(s).then(function(){
+        showToast('Brouillon de facture créé à partir de la soumission — vérifiez-le puis envoyez-le.', '');
+        renderAdminSoums();
+        openFacturesTab('brouillon');
+      }).catch(function(err){ setMsg(msg, 'Erreur : ' + err.message, true); btn.disabled = false; });
+      return;
+    }
+
     var patch, done;
     if(kind === 'send'){
       var ed = readEditor(item);
@@ -779,6 +817,329 @@
     b.addEventListener('click', function(){ asState.filter = b.dataset.asFilter; renderAdminSoums(); });
   });
 
+  /* ── FACTURES FINALES ──
+     Créées depuis une soumission acceptée (brouillon) → l'admin ajuste et envoie → le client la voit en PDF → « Payée ». */
+  var FACT_CLIENT = { envoyee:'À payer', payee:'Payée', annulee:'Annulée' };
+  var FACT_ADMIN = { brouillon:'Brouillon', envoyee:'À payer', payee:'Payée', annulee:'Annulée' };
+  var FACT_TITLES = { brouillon:'Brouillons', envoyee:'À payer', payee:'Payées', annulee:'Annulées', tous:'Toutes les factures' };
+  var FACT_TONE = { brouillon:'muted', envoyee:'warn', payee:'ok', annulee:'bad' };
+  state.facts = [];
+  function factBadge(f, labels){ return '<span class="ec-badge ec-' + FACT_TONE[f.statut] + '">' + esc(labels[f.statut]) + '</span>'; }
+  function factRef(f){ return f.soumissions ? soumNumero(f.soumissions) : ''; }
+
+  /* Client */
+  function loadFactures(){
+    sb.from('factures').select('*, soumissions(numero, created_at)').order('created_at', { ascending:false }).then(function(res){
+      if(res.error) return;
+      state.facts = res.data;
+      updateFactStat();
+      renderDocs();
+    });
+  }
+  function updateFactStat(){
+    $('#stat-docs').textContent =
+      state.facts.filter(function(f){ return f.statut === 'envoyee'; }).length +
+      state.docs.filter(function(d){ return d.type === 'facture' && (d.statut === 'envoyee' || d.statut === 'en_retard'); }).length;
+  }
+  function factItemClient(f){
+    var t = soumTotaux(f.lignes || [], f.taxes);
+    var enRetard = f.statut === 'envoyee' && f.date_echeance && f.date_echeance < new Date().toISOString().slice(0, 10);
+    return '<div class="ec-item" data-fact="' + esc(f.id) + '">' +
+      '<div class="ec-item-main"><strong>Facture ' + esc(factureNumero(f)) + ' · ' + esc(LABELS.service[f.service] || f.service) + '</strong>' +
+        '<span class="ec-muted">Émise le ' + esc(fmtDate(f.envoyee_at || f.created_at)) +
+          (f.date_echeance && f.statut === 'envoyee' ? ' · à payer avant le ' + esc(fmtDate(f.date_echeance)) : '') +
+          (f.statut === 'payee' && f.payee_at ? ' · payée le ' + esc(fmtDate(f.payee_at)) : '') + '</span>' +
+        (factRef(f) ? '<span class="ec-muted ec-small">Réf. soumission ' + esc(factRef(f)) + '</span>' : '') +
+        (f.note ? '<div class="ec-reply"><b>Note de GK Groupe</b>' + esc(f.note) + '</div>' : '') +
+      '</div>' +
+      '<div class="ec-item-side"><span class="ec-amount">' + esc(fmtMoney(t.total)) + '</span>' +
+        (enRetard ? '<span class="ec-badge ec-bad">En retard</span>' : factBadge(f, FACT_CLIENT)) +
+        '<button class="ec-textbtn" data-fact-pdf>PDF ↓</button>' +
+      '</div></div>';
+  }
+  $('#doc-list').addEventListener('click', function(e){
+    var el = e.target.closest('[data-fact-pdf]');
+    if(!el) return;
+    var f = state.facts.filter(function(x){ return x.id === el.closest('[data-fact]').dataset.fact; })[0];
+    var meta = state.user.user_metadata || {};
+    downloadSoumPdf(Object.assign({ _refSoumission: factRef(f) }, f), { nom_complet: meta.nom_complet, email: state.user.email, telephone: meta.telephone }, 'facture')
+      .catch(function(err){ alert(err.message); });
+  });
+
+  /* Admin */
+  var afState = { rows:[], filter:'brouillon' };
+
+  function loadAdminFactures(){
+    return sb.from('factures').select('*, profiles(nom_complet, email, telephone), soumissions(numero, created_at)')
+      .order('created_at', { ascending:false }).then(function(res){
+        if(res.error){ $('#af-list').innerHTML = empty('Impossible de charger les factures : ' + res.error.message); return; }
+        afState.rows = res.data;
+        renderAdminFactures();
+        renderAdminSoums();
+      });
+  }
+
+  function soumFactureAction(s){
+    var f = afState.rows.filter(function(x){ return x.soumission_id === s.id && x.statut !== 'annulee'; })[0];
+    if(!f) return '<button class="adm-btn adm-ok" data-as="facture">🧾 Créer la facture finale</button>';
+    return factBadge(f, FACT_ADMIN).replace('">', '">🧾 ' + esc(factureNumero(f)) + ' · ') +
+      '<button class="ec-textbtn" data-as="goto-facture" data-statut="' + esc(f.statut) + '">Voir la facture</button>';
+  }
+
+  function creerFacture(s){
+    var titre = s.description.split('\n')[0].slice(0, 140);
+    return sb.from('factures').insert({
+      client_id: s.client_id, soumission_id: s.id, service: s.service, titre: titre,
+      lignes: s.lignes || [], taxes: s.taxes, total: s.total, statut: 'brouillon',
+      date_echeance: new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10)
+    }).then(function(res){
+      if(res.error) throw new Error(/factures_une_par_soumission|duplicate/.test(res.error.message)
+        ? 'Une facture existe déjà pour cette soumission.' : res.error.message);
+      return loadAdminFactures();
+    });
+  }
+
+  function openFacturesTab(statut){
+    afState.filter = statut || 'brouillon';
+    $('[data-adm-tab=factures]').click();
+  }
+
+  function renderAdminFactures(){
+    var drafts = afState.rows.filter(function(f){ return f.statut === 'brouillon'; }).length;
+    $('#adm-fact-count').hidden = !drafts;
+    $('#adm-fact-count').textContent = drafts;
+    $('#af-title').textContent = FACT_TITLES[afState.filter];
+    $$('[data-af-filter]').forEach(function(c){ c.classList.toggle('active', c.dataset.afFilter === afState.filter); });
+    var rows = afState.rows.filter(function(f){ return afState.filter === 'tous' || f.statut === afState.filter; });
+    $('#af-list').innerHTML = rows.length ? rows.map(afItem).join('') : empty('Aucune facture ici.');
+    $$('#af-list .as-editor').forEach(function(ed){ refreshTotals(ed.closest('.adm-item')); });
+  }
+
+  function afItem(f){
+    var c = f.profiles || {};
+    var editable = f.statut === 'brouillon' || f.statut === 'envoyee';
+    var lignes = f.lignes && f.lignes.length ? f.lignes : [{ description:'', quantite:1, prix:'' }];
+    var t = soumTotaux(f.lignes || [], f.taxes);
+    var body;
+    if(editable){
+      body = '<div class="as-editor">' +
+        '<div class="fg"><label>Titre de la facture</label><input data-af-titre value="' + esc(f.titre) + '"></div>' +
+        '<div class="as-table-wrap"><table class="as-lines"><thead><tr><th>Description</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th><th></th></tr></thead>' +
+        '<tbody>' + lignes.map(lineRow).join('') + '</tbody></table></div>' +
+        '<button class="ec-textbtn" data-as="add">+ Ajouter une ligne</button>' +
+        '<div class="as-bottom"><div class="as-opts">' +
+          '<label class="as-check"><input type="checkbox" data-as-taxes' + (f.taxes ? ' checked' : '') + '> Ajouter TPS (5 %) et TVQ (9,975 %)</label>' +
+          '<div class="fg"><label>À payer avant le</label><input type="date" data-as-valid value="' + esc(f.date_echeance || '') + '"></div>' +
+          '<div class="fg"><label>Note au client (optionnel)</label><textarea rows="2" data-as-note placeholder="Modes de paiement acceptés, remerciements…">' + esc(f.note || '') + '</textarea></div>' +
+        '</div><div class="as-totals" data-as-totals></div></div>' +
+        '<div class="adm-actions">' +
+          '<button class="adm-btn" data-af="pdf">Aperçu PDF</button>' +
+          '<button class="adm-btn adm-ok" data-af="send">' + (f.statut === 'envoyee' ? 'Mettre à jour et renvoyer' : 'Envoyer la facture au client') + '</button>' +
+          (f.statut === 'envoyee' ? '<button class="adm-btn adm-ok" data-af="paid">✓ Marquer payée</button><button class="adm-btn adm-bad" data-af="cancel">Annuler la facture</button>'
+                                   : '<button class="adm-btn adm-bad" data-af="delete">🗑 Supprimer le brouillon</button>') +
+        '</div><p class="ec-msg" role="status"></p></div>';
+    } else {
+      body = '<div class="as-summary"><span class="ec-amount">' + esc(fmtMoney(t.total)) + '</span>' +
+        '<button class="adm-btn" data-af="pdf">PDF ↓</button>' +
+        (f.statut === 'payee' ? '<button class="ec-textbtn" data-af="unpaid">Annuler « payée »</button>' : '<button class="adm-btn adm-bad" data-af="delete">🗑 Supprimer</button>') +
+        (f.payee_at ? '<span class="ec-muted ec-small">Payée le ' + esc(fmtDateTime(f.payee_at)) + '</span>' : '') +
+        '</div><p class="ec-msg" role="status"></p>';
+    }
+    return '<div class="adm-item" data-fact-id="' + esc(f.id) + '">' +
+      '<div class="adm-head"><div><strong>' + esc(factureNumero(f)) + ' · ' + esc(LABELS.service[f.service] || f.service) + '</strong> ' + factBadge(f, FACT_ADMIN) + '</div>' +
+        '<span class="adm-date">' + esc(fmtMoney(t.total)) + '</span></div>' +
+      '<div class="adm-grid">' +
+        '<div><span class="adm-k">Client</span>' + esc(c.nom_complet || '—') + '</div>' +
+        '<div><span class="adm-k">Courriel</span>' + (c.email ? '<a class="ec-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') + '</div>' +
+        '<div><span class="adm-k">Soumission</span>' + esc(factRef(f) || '—') + '</div>' +
+        (f.envoyee_at ? '<div><span class="adm-k">Envoyée le</span>' + esc(fmtDateTime(f.envoyee_at)) + '</div>' : '') +
+      '</div>' + body + '</div>';
+  }
+
+  function mailtoFacture(f, total){
+    var c = f.profiles || {};
+    if(!c.email) return '';
+    var body = 'Bonjour ' + (c.nom_complet || '') + ',\n\n' +
+      'Votre facture ' + factureNumero(f) + ' (' + (LABELS.service[f.service] || f.service) + ') est disponible : ' + fmtMoney(total) + '.\n' +
+      (f.date_echeance ? 'À payer avant le ' + fmtDate(f.date_echeance) + '.\n' : '') +
+      '\nTéléchargez-la en PDF dans votre espace client : https://gkgroupeinc.com/espace-client\n\n' +
+      'Merci de votre confiance !\nGK Groupe inc\n581-447-0086';
+    return 'mailto:' + encodeURIComponent(c.email) + '?subject=' + encodeURIComponent('Votre facture GK Groupe ' + factureNumero(f)) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  $('#af-list').addEventListener('input', function(e){
+    var item = e.target.closest('.adm-item');
+    if(item && item.querySelector('.as-editor')) refreshTotals(item);
+  });
+  $('#af-list').addEventListener('change', function(e){
+    if(e.target.matches('[data-as-taxes]')) refreshTotals(e.target.closest('.adm-item'));
+  });
+
+  $('#af-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-af],[data-as]');
+    if(!btn) return;
+    var item = btn.closest('.adm-item');
+    var f = afState.rows.filter(function(x){ return x.id === item.dataset.factId; })[0];
+    var msg = item.querySelector('.ec-msg');
+    var kind = btn.dataset.af || btn.dataset.as;
+
+    if(kind === 'add'){
+      var tbody = item.querySelector('.as-lines tbody');
+      tbody.insertAdjacentHTML('beforeend', lineRow({ description:'', quantite:1, prix:'' }));
+      tbody.lastElementChild.querySelector('input').focus();
+      return;
+    }
+    if(kind === 'del'){
+      var tr = btn.closest('tr');
+      if(tr.parentNode.children.length > 1) tr.remove();
+      else $$('input', tr).forEach(function(i){ i.value = i.dataset.l === 'quantite' ? 1 : ''; });
+      refreshTotals(item);
+      return;
+    }
+    function edited(){
+      var ed = readEditor(item);
+      return { lignes: ed.lignes, taxes: ed.taxes, note: ed.note_admin, date_echeance: ed.valide_jusqu,
+               titre: item.querySelector('[data-af-titre]').value.trim() || f.titre };
+    }
+    if(kind === 'pdf'){
+      var src = item.querySelector('.as-editor') ? Object.assign({}, f, edited()) : f;
+      downloadSoumPdf(Object.assign({ _refSoumission: factRef(f) }, src), f.profiles, 'facture')
+        .catch(function(err){ setMsg(msg, err.message, true); });
+      return;
+    }
+
+    var patch, done, question;
+    if(kind === 'send'){
+      patch = edited();
+      if(!patch.lignes.length){ setMsg(msg, 'Ajoutez au moins une ligne avec une description et un prix.', true); return; }
+      if(patch.lignes.some(function(l){ return !l.description; })){ setMsg(msg, 'Chaque ligne doit avoir une description.', true); return; }
+      var tot = soumTotaux(patch.lignes, patch.taxes).total;
+      Object.assign(patch, { total: tot, statut: 'envoyee', envoyee_at: new Date().toISOString() });
+      done = function(){ showToast('Facture envoyée — le client la voit dans son espace et peut la télécharger en PDF.', mailtoFacture(f, tot)); };
+    } else if(kind === 'paid'){
+      question = 'Marquer la facture ' + factureNumero(f) + ' comme payée ?';
+      patch = { statut: 'payee', payee_at: new Date().toISOString() };
+      done = function(){ showToast('Facture marquée payée.', ''); };
+    } else if(kind === 'unpaid'){
+      question = 'Remettre la facture ' + factureNumero(f) + ' « à payer » ?';
+      patch = { statut: 'envoyee', payee_at: null };
+      done = function(){ showToast('Facture remise « à payer ».', ''); };
+    } else if(kind === 'cancel'){
+      question = 'Annuler la facture ' + factureNumero(f) + ' ?\n\nLe client la verra comme annulée.';
+      patch = { statut: 'annulee' };
+      done = function(){ showToast('Facture annulée.', ''); };
+    } else if(kind === 'delete'){
+      if(!confirm('Supprimer définitivement la facture ' + factureNumero(f) + ' ?')) return;
+      btn.disabled = true;
+      sb.from('factures').delete().eq('id', f.id).then(function(res){
+        if(res.error){ setMsg(msg, 'Erreur : ' + res.error.message, true); btn.disabled = false; return; }
+        afState.rows = afState.rows.filter(function(x){ return x.id !== f.id; });
+        renderAdminFactures();
+        renderAdminSoums();
+        showToast('Facture supprimée.', '');
+      });
+      return;
+    } else return;
+
+    if(question && !confirm(question)) return;
+    $$('button', item).forEach(function(b){ b.disabled = true; });
+    sb.from('factures').update(patch).eq('id', f.id).then(function(res){
+      if(res.error){
+        setMsg(msg, 'Erreur : ' + res.error.message, true);
+        $$('button', item).forEach(function(b){ b.disabled = false; });
+        return;
+      }
+      for(var k in patch) f[k] = patch[k];
+      if(kind === 'send' || kind === 'paid' || kind === 'unpaid' || kind === 'cancel') afState.filter = f.statut;
+      renderAdminFactures();
+      renderAdminSoums();
+      done();
+    });
+  });
+
+  $$('[data-af-filter]').forEach(function(b){
+    b.addEventListener('click', function(){ afState.filter = b.dataset.afFilter; renderAdminFactures(); });
+  });
+
+  /* ── ADMIN : créer une réservation (client au téléphone, en personne…) ── */
+  var NEW_CLIENT = '__nouveau__';
+  var anClients = [];
+  var anVehicule = window.GKVehicule ? GKVehicule.mount($('#an-vehicule'), 'an_veh_') : null;
+
+  function loadClientsList(){
+    sb.from('profiles').select('id, nom_complet, email, telephone, is_admin').order('nom_complet').then(function(res){
+      anClients = (res.data || []).filter(function(p){ return !p.is_admin; });
+      var sel = $('#an-client');
+      sel.innerHTML = '<option value="' + NEW_CLIENT + '">➕ Nouveau client (sans compte)</option>' +
+        (anClients.length ? '<optgroup label="Clients avec un compte">' + anClients.map(function(p){
+          return '<option value="' + esc(p.id) + '">' + esc((p.nom_complet || p.email) + (p.telephone ? ' · ' + p.telephone : '')) + '</option>';
+        }).join('') + '</optgroup>' : '');
+      syncAnClient();
+    });
+  }
+  function syncAnClient(){
+    var nouveau = $('#an-client').value === NEW_CLIENT;
+    $('#an-new-client').hidden = !nouveau;
+    $('#an-nom').required = nouveau;
+    $('#an-tel').required = nouveau;
+  }
+  function syncAnVehicule(){
+    if(anVehicule) anVehicule.setVisible(AUTO_SERVICES.indexOf($('#an-service').value) !== -1);
+  }
+  $('#an-client').addEventListener('change', syncAnClient);
+  $('#an-service').addEventListener('change', syncAnVehicule);
+  syncAnVehicule();
+
+  function toggleAdmNew(on){
+    $('#adm-new').hidden = !on;
+    if(on){
+      if(!anClients.length) loadClientsList();
+      $('#an-date').value = $('#an-date').value || new Date().toISOString().slice(0, 10);
+      $('#an-client').focus();
+    }
+  }
+  $('#adm-new-btn').addEventListener('click', function(){ toggleAdmNew($('#adm-new').hidden); });
+  $('#an-cancel').addEventListener('click', function(){ toggleAdmNew(false); });
+
+  $('#form-adm-new').addEventListener('submit', function(e){
+    e.preventDefault();
+    var form = e.target;
+    var choix = $('#an-client').value;
+    var compte = anClients.filter(function(p){ return p.id === choix; })[0] || null;
+    var message = $('#an-msg').value.trim();
+    var row = {
+      client_id: compte ? compte.id : null,
+      client_nom: compte ? null : $('#an-nom').value.trim(),
+      client_telephone: compte ? null : $('#an-tel').value.trim(),
+      client_courriel: compte ? null : ($('#an-mail').value.trim() || null),
+      service: $('#an-service').value,
+      date_souhaitee: $('#an-date').value,
+      plage_horaire: $('#an-plage').value,
+      adresse: $('#an-adresse').value.trim(),
+      details: $('#an-details').value.trim() || null,
+      statut: $('#an-statut').value,
+      creee_par_admin: true,
+      reponse_admin: message || null,
+      repondu_at: message ? new Date().toISOString() : null
+    };
+    var veh = anVehicule && anVehicule.value();
+    if(veh){ row.vehicule_annee = veh.annee; row.vehicule_marque = veh.marque; row.vehicule_modele = veh.modele; }
+    busy(form, true);
+    sb.from('reservations').insert(row).then(function(res){
+      if(res.error){ setMsg($('#an-feedback'), 'Erreur : ' + res.error.message, true); return; }
+      form.reset();
+      if(anVehicule) anVehicule.reset();
+      syncAnClient(); syncAnVehicule();
+      setMsg($('#an-feedback'), '');
+      toggleAdmNew(false);
+      adm.filter = row.statut;
+      loadAdmin();
+      var pourMail = Object.assign({}, row, { profiles: compte });
+      showToast('Réservation créée' + (compte ? ' — le client la voit dans son espace.' : '.'), mailtoClient(pourMail, message));
+    }).finally(function(){ busy(form, false); });
+  });
+
   /* ── ADMIN : gestion des réservations ── */
   var adm = { rows:[], filter:'en_attente' };
   var ADM_TITLES = { en_attente:'À traiter', confirmee:'Confirmées', refusee:'Refusées', terminee:'Terminées', annulee:'Annulées', tous:'Toutes les réservations' };
@@ -792,6 +1153,7 @@
         renderAdmin();
       });
     loadAdminSoums();
+    loadAdminFactures();
   }
 
   function renderAdmin(){
@@ -811,18 +1173,24 @@
   // Seules les réservations terminées, annulées ou refusées peuvent être supprimées.
   var CLOSED = ['terminee', 'annulee', 'refusee'];
 
+  // Coordonnées du client : son compte, ou celles saisies par l'admin pour un client sans compte.
+  function resaClient(r){
+    return r.profiles || { nom_complet: r.client_nom, telephone: r.client_telephone, email: r.client_courriel };
+  }
+
   function admItem(r){
-    var c = r.profiles || {};
+    var c = resaClient(r);
     var actions = r.statut === 'en_attente'
       ? '<button class="adm-btn adm-ok" data-adm-action="confirmee">✓ Accepter</button><button class="adm-btn adm-bad" data-adm-action="refusee">✕ Refuser</button>'
       : r.statut === 'confirmee'
       ? '<button class="adm-btn adm-ok" data-adm-action="terminee">Marquer terminée</button><button class="adm-btn adm-bad" data-adm-action="refusee">Annuler / refuser</button>'
       : '<button class="adm-btn adm-bad" data-adm-delete>🗑 Supprimer</button>';
     return '<div class="adm-item" data-id="' + esc(r.id) + '">' +
-      '<div class="adm-head"><div><strong>' + esc(LABELS.service[r.service]) + '</strong> ' + badge(r.statut, 'resa') + '</div>' +
+      '<div class="adm-head"><div><strong>' + esc(LABELS.service[r.service]) + '</strong> ' + badge(r.statut, 'resa') +
+        (r.creee_par_admin ? ' <span class="sq-src sq-src-site">Créée par GK</span>' : '') + '</div>' +
       '<span class="adm-date">' + esc(fmtDate(r.date_souhaitee)) + ' · ' + esc(LABELS.plage[r.plage_horaire]) + '</span></div>' +
       '<div class="adm-grid">' +
-        '<div><span class="adm-k">Client</span>' + esc(c.nom_complet || '—') + '</div>' +
+        '<div><span class="adm-k">Client</span>' + esc(c.nom_complet || '—') + (r.client_id ? '' : ' <span class="ec-muted ec-small">(sans compte)</span>') + '</div>' +
         '<div><span class="adm-k">Téléphone</span>' + (c.telephone ? '<a class="ec-link" href="tel:' + esc(c.telephone) + '">' + esc(c.telephone) + '</a>' : '—') + '</div>' +
         '<div><span class="adm-k">Courriel</span>' + (c.email ? '<a class="ec-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') + '</div>' +
         '<div><span class="adm-k">Adresse</span>' + esc(r.adresse) + '</div>' +
@@ -928,7 +1296,8 @@
     t.addEventListener('click', function(){
       $$('[data-adm-tab]').forEach(function(x){ x.classList.toggle('active', x === t); });
       $$('[data-adm-panel]').forEach(function(p){ p.hidden = p.dataset.admPanel !== t.dataset.admTab; });
-      $('#adm-h1').textContent = { site:'Réservations', soumissions:'Soumissions', square:'Agenda Square' }[t.dataset.admTab];
+      $('#adm-h1').textContent = { site:'Réservations', soumissions:'Soumissions', factures:'Factures', square:'Agenda Square' }[t.dataset.admTab];
+      if(t.dataset.admTab === 'factures') renderAdminFactures();
       if(t.dataset.admTab === 'square' && !agendaLoaded){ agendaLoaded = true; loadAgenda(); }
     });
   });
@@ -948,7 +1317,7 @@
     if(!btn) return;
     var item = btn.closest('.adm-item');
     var r = adm.rows.filter(function(x){ return x.id === item.dataset.id; })[0];
-    var c = r.profiles || {};
+    var c = resaClient(r);
     if(!confirm('Supprimer définitivement cette réservation ?\n\n' + LABELS.service[r.service] + ' — ' + (c.nom_complet || '') + ' — ' + fmtDate(r.date_souhaitee) +
                 '\n\nElle disparaîtra aussi de l\'espace du client.')) return;
     btn.disabled = true;
@@ -1006,7 +1375,7 @@
 
   // Lien qui ouvre le logiciel de courriel avec un message prêt, pour prévenir aussi le client par courriel.
   function mailtoClient(r, message){
-    var c = r.profiles || {};
+    var c = resaClient(r);
     if(!c.email) return '';
     var body = 'Bonjour ' + (c.nom_complet || '') + ',\n\n' +
       'Votre réservation « ' + LABELS.service[r.service] + ' » du ' + fmtDate(r.date_souhaitee) +

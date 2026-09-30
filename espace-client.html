@@ -262,7 +262,23 @@
     <div class="ec-tabs ec-tabs-main" role="tablist">
       <button class="ec-tab active" data-adm-tab="site" role="tab">Réservations du site</button>
       <button class="ec-tab" data-adm-tab="soumissions" role="tab">Soumissions <span class="adm-tab-count" id="adm-soum-count" hidden></span></button>
+      <button class="ec-tab" data-adm-tab="factures" role="tab">Factures <span class="adm-tab-count" id="adm-fact-count" hidden></span></button>
       <button class="ec-tab" data-adm-tab="square" role="tab">Agenda Square</button>
+    </div>
+
+    <div class="ec-card" data-adm-panel="factures" hidden>
+      <div class="ec-card-head">
+        <h3 id="af-title">Brouillons</h3>
+        <div class="ec-chips">
+          <button class="ec-chip active" data-af-filter="brouillon">Brouillons</button>
+          <button class="ec-chip" data-af-filter="envoyee">À payer</button>
+          <button class="ec-chip" data-af-filter="payee">Payées</button>
+          <button class="ec-chip" data-af-filter="annulee">Annulées</button>
+          <button class="ec-chip" data-af-filter="tous">Toutes</button>
+        </div>
+      </div>
+      <p class="ec-muted ec-small af-hint">Une facture se crée depuis une soumission acceptée (onglet Soumissions → « Créer la facture finale »).</p>
+      <div id="af-list" class="ec-list"></div>
     </div>
 
     <div class="ec-card" data-adm-panel="soumissions" hidden>
@@ -289,6 +305,64 @@
     </div>
 
     <div data-adm-panel="site">
+    <div class="adm-toolbar">
+      <button class="call-btn" id="adm-new-btn"><span class="dot"></span>+ Nouvelle réservation</button>
+    </div>
+
+    <div class="ec-card adm-new-card" id="adm-new" hidden>
+      <h3>Nouvelle réservation</h3>
+      <p class="ec-muted">Pour un client qui appelle ou passe en personne. Avec un compte, il la verra dans son espace client.</p>
+      <form id="form-adm-new" class="ec-form">
+        <div class="fg">
+          <label for="an-client">Client</label>
+          <select id="an-client" required><option value="">Chargement des clients…</option></select>
+        </div>
+        <div class="frow3" id="an-new-client">
+          <div class="fg"><label for="an-nom">Nom du client</label><input id="an-nom" type="text" autocomplete="off"></div>
+          <div class="fg"><label for="an-tel">Téléphone</label><input id="an-tel" type="tel" autocomplete="off"></div>
+          <div class="fg"><label for="an-mail">Courriel <span class="ec-muted">(optionnel)</span></label><input id="an-mail" type="email" autocomplete="off"></div>
+        </div>
+        <div class="frow3">
+          <div class="fg">
+            <label for="an-service">Service</label>
+            <select id="an-service" required>
+              <option value="livraison">📦 Livraison</option>
+              <option value="demenagement">🚚 Déménagement</option>
+              <option value="service_auto">🔧 Service auto</option>
+              <option value="detaillage">✨ Détaillage auto</option>
+            </select>
+          </div>
+          <div class="fg"><label for="an-date">Date</label><input id="an-date" type="date" required></div>
+          <div class="fg">
+            <label for="an-plage">Moment</label>
+            <select id="an-plage" required>
+              <option value="matin">Matin</option>
+              <option value="apres_midi">Après-midi</option>
+              <option value="soir">Soir</option>
+            </select>
+          </div>
+        </div>
+        <div id="an-vehicule" hidden></div>
+        <div class="fg"><label for="an-adresse">Adresse</label><input id="an-adresse" type="text" required autocomplete="off"></div>
+        <div class="fg"><label for="an-details">Détails <span class="ec-muted">(optionnel)</span></label><textarea id="an-details" rows="2"></textarea></div>
+        <div class="frow">
+          <div class="fg">
+            <label for="an-statut">Statut</label>
+            <select id="an-statut">
+              <option value="confirmee">Confirmée</option>
+              <option value="en_attente">En attente</option>
+            </select>
+          </div>
+          <div class="fg"><label for="an-msg">Message au client <span class="ec-muted">(optionnel)</span></label><input id="an-msg" type="text" placeholder="Ex. : On arrive vers 9 h."></div>
+        </div>
+        <div class="soum-ask-actions">
+          <button type="submit" class="form-submit">Créer la réservation</button>
+          <button type="button" class="ec-textbtn" id="an-cancel">Annuler</button>
+        </div>
+        <p class="ec-msg" id="an-feedback" role="status"></p>
+      </form>
+    </div>
+
     <div class="ec-stats">
       <button class="ec-stat" data-adm-filter="en_attente"><span class="ec-stat-num" id="adm-count-attente">–</span><span>À traiter</span></button>
       <button class="ec-stat" data-adm-filter="confirmee"><span class="ec-stat-num" id="adm-count-confirmee">–</span><span>Confirmées à venir</span></button>
