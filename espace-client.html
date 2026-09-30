@@ -299,7 +299,10 @@
     <div class="ec-card" data-adm-panel="square" hidden>
       <div class="ec-card-head">
         <h3>Agenda Square — 30 prochains jours</h3>
-        <a class="adm-btn" href="https://app.squareup.com/dashboard/" target="_blank" rel="noopener">Ouvrir Square pour ajouter un RDV ↗</a>
+        <div class="sq-tools">
+          <label class="as-check"><input type="checkbox" id="sq-show-cancelled"> Afficher les annulés<span id="sq-cancelled-count"></span></label>
+          <a class="adm-btn" href="https://app.squareup.com/dashboard/" target="_blank" rel="noopener">Ouvrir Square ↗</a>
+        </div>
       </div>
       <div id="sq-agenda" class="ec-list"></div>
     </div>

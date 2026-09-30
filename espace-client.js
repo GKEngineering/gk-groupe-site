@@ -1268,13 +1268,26 @@
   /* Onglet « Agenda Square » */
   var SQ_STATUS = { PENDING:['En attente','warn'], ACCEPTED:['Confirmé','ok'], CANCELLED_BY_CUSTOMER:['Annulé (client)','bad'],
     CANCELLED_BY_SELLER:['Annulé','bad'], DECLINED:['Refusé','bad'], NO_SHOW:['Absent','muted'] };
+  // Les RDV annulés/refusés sont masqués par défaut (Square ne permet pas de les supprimer).
+  var sqBookings = [];
+  function isCancelled(b){ return /^CANCELLED/.test(b.status) || b.status === 'DECLINED'; }
   function loadAgenda(){
     var out = $('#sq-agenda');
     out.innerHTML = '<div class="ec-spinner"></div>';
     callSquare({ action:'list_bookings' }).then(function(res){
-      if(!res.bookings.length){ out.innerHTML = empty('Aucun rendez-vous dans les 30 prochains jours.'); return; }
-      var day = '';
-      out.innerHTML = res.bookings.map(function(b){
+      sqBookings = res.bookings;
+      renderAgenda();
+    }).catch(function(err){ out.innerHTML = empty(err.message); });
+  }
+  function renderAgenda(){
+    var out = $('#sq-agenda');
+    var showCancelled = $('#sq-show-cancelled').checked;
+    var nbCancelled = sqBookings.filter(isCancelled).length;
+    $('#sq-cancelled-count').textContent = nbCancelled ? ' (' + nbCancelled + ')' : '';
+    var rows = showCancelled ? sqBookings : sqBookings.filter(function(b){ return !isCancelled(b); });
+    if(!rows.length){ out.innerHTML = empty('Aucun rendez-vous' + (showCancelled ? '' : ' actif') + ' dans les 30 prochains jours.'); return; }
+    var day = '';
+    out.innerHTML = rows.map(function(b){
         var d = new Date(b.start_at);
         var label = d.toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' });
         var head = label !== day ? '<h4 class="sq-day">' + esc(label) + '</h4>' : '';
@@ -1288,8 +1301,8 @@
           '<span class="ec-muted ec-small">' + esc(b.duration_minutes) + ' min</span>' +
           '<span class="ec-badge ec-' + st[1] + '">' + esc(st[0]) + '</span></div></div>';
       }).join('');
-    }).catch(function(err){ out.innerHTML = empty(err.message); });
   }
+  $('#sq-show-cancelled').addEventListener('change', renderAgenda);
 
   var agendaLoaded = false;
   $$('[data-adm-tab]').forEach(function(t){

@@ -195,6 +195,8 @@
 .sq-src-site{background:var(--blue-tint);color:var(--blue-deep);}
 .sq-src-square{background:#f1f1f1;color:#333;}
 #sq-agenda .ec-spinner{margin:40px auto;}
+.sq-tools{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.sq-tools .as-check{margin-bottom:0;font-size:13.5px;}
 
 /* Suivi de livraison */
 .ec-track{border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:12px;background:#fafbff;}
