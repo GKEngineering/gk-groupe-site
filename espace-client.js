@@ -27,6 +27,13 @@
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
   }
+  // Date du jour (AAAA-MM-JJ) à l'heure du Québec, décalée de « jours ».
+  // toISOString() donne la date UTC : après 19h-20h au Québec, ce serait déjà le lendemain.
+  function dateLocale(jours){
+    var d = new Date();
+    if(jours) d.setDate(d.getDate() + jours);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
   function fmtDate(d){
     if(!d) return '—';
     var date = d.length === 10 ? new Date(d + 'T12:00:00') : new Date(d);
@@ -156,7 +163,7 @@
         show('view-admin'); loadAdmin(); return;
       }
       show('view-app');
-      $('#resa-date').min = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+      $('#resa-date').min = dateLocale(1);
       loadAll();
       if(location.hash === '#reserver') goTab('reserver');
     });
@@ -177,7 +184,7 @@
       var list = $('#resa-list');
       if(res.error){ list.innerHTML = empty('Impossible de charger vos réservations.'); return; }
       var rows = res.data;
-      var today = new Date().toISOString().slice(0, 10);
+      var today = dateLocale();
       var upcoming = rows.filter(function(r){ return r.date_souhaitee >= today && (r.statut === 'en_attente' || r.statut === 'confirmee'); })
                          .sort(function(a, b){ return a.date_souhaitee < b.date_souhaitee ? -1 : 1; });
       $('#stat-resa').textContent = upcoming.length;
@@ -342,7 +349,7 @@
     return { sousTotal: st, tps: tps, tvq: tvq, total: round2(st + tps + tvq) };
   }
   function soumBadge(s, labels){ return '<span class="ec-badge ec-' + (TONE[s.statut] || 'muted') + '">' + esc(labels[s.statut]) + '</span>'; }
-  function soumExpiree(s){ return s.statut === 'envoyee' && s.valide_jusqu && s.valide_jusqu < new Date().toISOString().slice(0, 10); }
+  function soumExpiree(s){ return s.statut === 'envoyee' && s.valide_jusqu && s.valide_jusqu < dateLocale(); }
   function soumVehiculeTexte(s){ return [s.vehicule_marque, s.vehicule_modele, s.vehicule_annee].filter(Boolean).join(' '); }
 
   // Courriel à GK Groupe (Web3Forms, comme les réservations).
@@ -365,7 +372,7 @@
   syncSoumVehicule();
   function toggleSoumAsk(on){
     $('#soum-ask').hidden = !on;
-    if(on){ $('#soum-date').min = new Date().toISOString().slice(0, 10); $('#soum-desc').focus(); }
+    if(on){ $('#soum-date').min = dateLocale(); $('#soum-desc').focus(); }
   }
   $('#btn-soum-ask').addEventListener('click', function(){ toggleSoumAsk($('#soum-ask').hidden); });
   $('#soum-cancel').addEventListener('click', function(){ toggleSoumAsk(false); });
@@ -647,7 +654,7 @@
     var c = s.profiles || {};
     var editable = s.statut === 'demandee' || s.statut === 'envoyee';
     var lignes = s.lignes && s.lignes.length ? s.lignes : [{ description:'', quantite:1, prix:'' }];
-    var valid = s.valide_jusqu || new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    var valid = s.valide_jusqu || dateLocale(30);
     var body;
     if(editable){
       body = '<div class="as-editor">' +
@@ -843,7 +850,7 @@
   }
   function factItemClient(f){
     var t = soumTotaux(f.lignes || [], f.taxes);
-    var enRetard = f.statut === 'envoyee' && f.date_echeance && f.date_echeance < new Date().toISOString().slice(0, 10);
+    var enRetard = f.statut === 'envoyee' && f.date_echeance && f.date_echeance < dateLocale();
     return '<div class="ec-item" data-fact="' + esc(f.id) + '">' +
       '<div class="ec-item-main"><strong>Facture ' + esc(factureNumero(f)) + ' · ' + esc(LABELS.service[f.service] || f.service) + '</strong>' +
         '<span class="ec-muted">Émise le ' + esc(fmtDate(f.envoyee_at || f.created_at)) +
@@ -891,7 +898,7 @@
     return sb.from('factures').insert({
       client_id: s.client_id, soumission_id: s.id, service: s.service, titre: titre,
       lignes: s.lignes || [], taxes: s.taxes, total: s.total, statut: 'brouillon',
-      date_echeance: new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10)
+      date_echeance: dateLocale(15)
     }).then(function(res){
       if(res.error) throw new Error(/factures_une_par_soumission|duplicate/.test(res.error.message)
         ? 'Une facture existe déjà pour cette soumission.' : res.error.message);
@@ -1095,7 +1102,7 @@
     $('#adm-new').hidden = !on;
     if(on){
       if(!anClients.length) loadClientsList();
-      $('#an-date').value = $('#an-date').value || new Date().toISOString().slice(0, 10);
+      $('#an-date').value = $('#an-date').value || dateLocale();
       $('#an-client').focus();
     }
   }
@@ -1157,7 +1164,7 @@
   }
 
   function renderAdmin(){
-    var today = new Date().toISOString().slice(0, 10);
+    var today = dateLocale();
     $('#adm-count-attente').textContent = adm.rows.filter(function(r){ return r.statut === 'en_attente'; }).length;
     $('#adm-count-confirmee').textContent = adm.rows.filter(function(r){ return r.statut === 'confirmee' && r.date_souhaitee >= today; }).length;
     $('#adm-count-tous').textContent = adm.rows.length;

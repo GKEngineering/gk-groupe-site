@@ -4,14 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-E97LYHVST7"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-E97LYHVST7');
-</script>
+<!-- Google Analytics : chargé seulement si le visiteur accepte les témoins (consent.js, Loi 25) -->
 
 <title>GK GROUPE inc — Livraison · Déménagement · Auto · Jardinage</title>
 <meta name="description" content="GK Groupe inc — Livraison, déménagement, service auto et détaillage au Québec. Soumission gratuite, réponse sous 24h.">
@@ -19,7 +12,7 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=202610152254">
+<link rel="stylesheet" href="style.css?v=202611211200">
 
 
 <!-- Open Graph / partage sur réseaux sociaux -->
@@ -29,7 +22,7 @@
 <meta property="og:site_name" content="GK Groupe inc">
 <meta property="og:title" content="GK Groupe inc — Livraison · Déménagement · Auto · Détaillage">
 <meta property="og:description" content="Livraison, déménagement, service auto et détaillage au Québec. Soumission gratuite, réponse sous 24h. Disponible 7j/7.">
-<meta property="og:image" content="og-image.png">
+<meta property="og:image" content="https://gkgroupeinc.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
@@ -37,15 +30,16 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="GK Groupe inc — Livraison · Déménagement · Auto · Détaillage">
 <meta name="twitter:description" content="Livraison, déménagement, service auto et détaillage au Québec. Soumission gratuite, réponse sous 24h.">
-<meta name="twitter:image" content="og-image.png">
+<meta name="twitter:image" content="https://gkgroupeinc.com/og-image.png">
 
 <!-- Données structurées Google (entreprise locale) -->
-<script type="application/ld+json">
+<script type="application/ld+json" id="ld-business">
 {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   "name": "GK Groupe inc",
-  "image": "logo.png",
+  "image": "https://gkgroupeinc.com/logo.png",
+  "url": "https://gkgroupeinc.com/",
   "telephone": "+1-581-447-0086",
   "email": "gestion@gkgroupeinc.com",
   "priceRange": "$$",
@@ -61,8 +55,8 @@
       "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
       "opens": "07:00",
       "closes": "20:00",
-      "validFrom": "2026-05-01",
-      "validThrough": "2026-10-31"
+      "validFrom": "2027-05-01",
+      "validThrough": "2027-10-31"
     },
     {
       "@type": "OpeningHoursSpecification",
@@ -112,7 +106,6 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=202610152254">
 </head>
 <body>
 
@@ -252,7 +245,7 @@
       <div class="ticket-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M4.9 4.9l14.2 14.2M2 12h20M4.9 19.1l14.2-14.2"/></svg></div>
       <span class="ticket-id">SERVICE / 06</span>
       <h3>Déneigement</h3>
-      <p>Déblaiement résidentiel et commercial pour l'hiver à venir.</p>
+      <p>Déblaiement résidentiel et commercial de vos entrées et stationnements.</p>
       <span class="badge">Bientôt</span>
     </div>
   </div>
@@ -306,18 +299,18 @@
 <section id="portfolio" class="portfolio">
   <div class="section-head" data-reveal>
     <span class="tag">Portfolio</span>
-    <h2>Des mandats récents, en bref.</h2>
-    <p>Un aperçu de nos interventions. Remplacez ces cartes par vos propres photos avant — après quand elles seront prêtes.</p>
+    <h2>Ce qu'on fait, en bref.</h2>
+    <p>Un aperçu de nos services actuels et de ceux qui arrivent bientôt.</p>
   </div>
   <div class="filters" data-reveal>
-    <button class="filter-btn active">Tout</button>
-    <button class="filter-btn">Livraison</button>
-    <button class="filter-btn">Déménagement</button>
-    <button class="filter-btn">Auto</button>
+    <button class="filter-btn active" data-filter="tout" aria-pressed="true">Tout</button>
+    <button class="filter-btn" data-filter="livraison" aria-pressed="false">Livraison</button>
+    <button class="filter-btn" data-filter="demenagement" aria-pressed="false">Déménagement</button>
+    <button class="filter-btn" data-filter="auto" aria-pressed="false">Auto</button>
   </div>
   <div class="work-grid" data-reveal>
 
-    <div class="work-card">
+    <div class="work-card" data-cat="livraison">
       <div class="work-visual delivery-bg">
         <div class="gkx-logo" role="img" aria-label="GK Express">
           <span class="gkx-lines" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -333,7 +326,7 @@
       </div>
     </div>
 
-    <div class="work-card">
+    <div class="work-card" data-cat="demenagement">
       <div class="work-visual moving-bg">
         <div class="gkx-logo" role="img" aria-label="GK Express">
           <span class="gkx-lines" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -349,7 +342,7 @@
       </div>
     </div>
 
-    <div class="work-card">
+    <div class="work-card" data-cat="auto">
       <div class="work-visual mec-bg">
         <div class="gkx-logo" role="img" aria-label="GK Service Auto">
           <span class="gkx-lines" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -358,23 +351,23 @@
         </div>
       </div>
       <div class="work-info">
-        <span class="cat">Service mécanique</span>
+        <span class="cat">Service mécanique · bientôt</span>
         <h4>Entretien &amp; réparations auto</h4>
         <p>Vidange, freins, inspection pré-achat, diagnostics — un service rapide, honnête et transparent pour votre véhicule.</p>
         <ul class="work-tags"><li>Inspection</li><li>Réparation</li><li>Diagnostic</li><li>Entretien</li></ul>
       </div>
     </div>
 
-    <div class="work-card">
+    <div class="work-card" data-cat="auto">
       <div class="work-visual detail-bg">
-        <div class="gkx-logo" role="img" aria-label="GK Detailling Auto">
+        <div class="gkx-logo" role="img" aria-label="GK Détaillage Auto">
           <span class="gkx-lines" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="gkx-gk">GK</span>
-          <span class="gkx-express">Detailling Auto</span>
+          <span class="gkx-express">Détaillage Auto</span>
         </div>
       </div>
       <div class="work-info">
-        <span class="cat">Détaillage auto</span>
+        <span class="cat">Détaillage auto · bientôt</span>
         <h4>Détaillage intérieur &amp; extérieur</h4>
         <p>Lavage complet, polissage carrosserie, traitement cuir, désinfection intérieur — votre voiture ressort comme neuve.</p>
         <ul class="work-tags"><li>Intérieur</li><li>Extérieur</li><li>Polissage</li><li>Protection</li></ul>
@@ -472,8 +465,8 @@
       <p>On dessert principalement le Saguenay et les environs. Pour une destination plus éloignée, contactez-nous — on regarde au cas par cas.</p>
     </details>
     <details class="faq-item">
-      <summary>Quels sont vos forfaits de service auto ?<span class="faq-plus">+</span></summary>
-      <p>Trois forfaits : Base (120$ + tx), Standard (220$ + tx, le plus populaire) et Premium (320$ + tx). Détails complets dans la section <a href="#packs">Forfaits</a>.</p>
+      <summary>Quels sont vos forfaits de détaillage &amp; entretien ?<span class="faq-plus">+</span></summary>
+      <p>Trois forfaits : Base (150$ + tx), Standard (250$ + tx, le plus populaire) et Premium (350$ + tx). Détails complets dans la section <a href="#packs">Forfaits</a>.</p>
     </details>
     <details class="faq-item">
       <summary>Quels sont vos horaires ?<span class="faq-plus">+</span></summary>
@@ -545,7 +538,7 @@
 <footer>
   <div>
     <img src="logo.png" alt="GK Groupe inc" class="logo">
-    <p>Livraison, déménagement, service auto et détaillage. Jardinage et déneigement à venir.</p>
+    <p>Livraison et déménagement. Service auto, détaillage, jardinage et déneigement à venir.</p>
   </div>
   <div class="foot-cols">
     <div>
@@ -572,11 +565,11 @@
       <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Québec, Canada</span>
     </div>
   </div>
-  <div class="foot-bottom">© 2026 GK Groupe inc. Tous droits réservés.</div>
+  <div class="foot-bottom">© 2026 GK Groupe inc. Tous droits réservés. · <a href="confidentialite.html">Politique de confidentialité</a> · <button type="button" class="foot-linkbtn" onclick="GKConsent.open()">Gérer les témoins</button></div>
 </footer>
 
 <!-- ========== CHATBOT ========== -->
-<button id="chatbot-btn" onclick="toggleChat()" title="Clavarder avec nous">
+<button id="chatbot-btn" onclick="toggleChat()" title="Clavarder avec nous" aria-label="Clavarder avec nous">
   <svg viewBox="0 0 24 24" fill="white"><path d="M20.4 4H3.6C2.7 4 2 4.7 2 5.6v10.8C2 17.3 2.7 18 3.6 18H8l4 4 4-4h4.4c.9 0 1.6-.7 1.6-1.6V5.6C22 4.7 21.3 4 20.4 4z"/></svg>
 </button>
 
@@ -587,7 +580,7 @@
       <div class="name">GK Groupe inc</div>
       <div class="status">En ligne maintenant</div>
     </div>
-    <button onclick="toggleChat()" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.65);font-size:20px;cursor:pointer;">✕</button>
+    <button onclick="toggleChat()" aria-label="Fermer le clavardage" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.65);font-size:20px;cursor:pointer;">✕</button>
   </div>
   <div class="chat-body" id="chat-body"></div>
   <div class="chat-choices" id="chat-choices"></div>
@@ -596,7 +589,7 @@
 <!-- ══ MODAL SOUMISSION ══ -->
 <div class="modal-overlay" id="modal-soumission">
   <div class="modal-box">
-    <button class="modal-close" onclick="closeModal('soumission')">✕</button>
+    <button class="modal-close" onclick="closeModal('soumission')" aria-label="Fermer">✕</button>
     <h3> Demande de soumission</h3>
     <p class="msub">Remplissez le formulaire — nous vous répondons dans les 24h.</p>
     <form id="form-soumission" action="https://api.web3forms.com/submit" method="POST" enctype="multipart/form-data">
@@ -605,16 +598,16 @@
       <input type="hidden" name="from_name" value="Site GK Groupe inc">
       <input type="checkbox" name="botcheck" style="display:none">
       <div class="frow">
-        <div class="fg"><label>Prénom *</label><input name="prenom" required placeholder="Jean"></div>
-        <div class="fg"><label>Nom *</label><input name="nom" required placeholder="Tremblay"></div>
+        <div class="fg"><label for="s-prenom">Prénom *</label><input id="s-prenom" name="prenom" required placeholder="Jean"></div>
+        <div class="fg"><label for="s-nom">Nom *</label><input id="s-nom" name="nom" required placeholder="Tremblay"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>Téléphone *</label><input name="telephone" type="tel" required placeholder="514 000-0000"></div>
-        <div class="fg"><label>Courriel *</label><input name="courriel" type="email" required placeholder="vous@exemple.com"></div>
+        <div class="fg"><label for="s-telephone">Téléphone *</label><input id="s-telephone" name="telephone" type="tel" required placeholder="418 000-0000"></div>
+        <div class="fg"><label for="s-courriel">Courriel *</label><input id="s-courriel" name="courriel" type="email" required placeholder="vous@exemple.com"></div>
       </div>
       <div class="fg">
-        <label>Service demandé *</label>
-        <select name="service" required>
+        <label for="s-service">Service demandé *</label>
+        <select id="s-service" name="service" required>
           <option value="">— Choisir un service —</option>
           <option>📦 Livraison</option>
           <option>🚚 Déménagement</option>
@@ -626,12 +619,12 @@
       </div>
       <div id="s-vehicule" hidden></div>
       <div class="frow">
-        <div class="fg"><label>Date souhaitée</label><input name="date" type="date"></div>
-        <div class="fg"><label>Ville / Secteur</label><input name="ville" placeholder="Chicoutimi, Jonquiere..."></div>
+        <div class="fg"><label for="s-date">Date souhaitée</label><input id="s-date" name="date" type="date"></div>
+        <div class="fg"><label for="s-ville">Ville / Secteur</label><input id="s-ville" name="ville" placeholder="Chicoutimi, Jonquière..."></div>
       </div>
-      <div class="fg"><label>Détails / Description</label><textarea name="message" placeholder="Décrivez votre besoin, adresses, quantité, contraintes..."></textarea></div>
+      <div class="fg"><label for="s-message">Détails / Description</label><textarea id="s-message" name="message" placeholder="Décrivez votre besoin, adresses, quantité, contraintes..."></textarea></div>
       <button type="submit" class="form-submit">Envoyer la demande →</button>
-      <p class="form-note">Envoi sécurisé vers gestion@gkgroupeinc.com</p>
+      <p class="form-note">Envoi sécurisé vers gestion@gkgroupeinc.com · <a href="confidentialite.html">Politique de confidentialité</a></p>
       <div class="form-sent" id="s-sent">✅ Demande envoyée ! Nous vous contactons sous 24h.</div>
       <div class="form-error" id="s-error">⚠️ Erreur d'envoi. Appelez-nous directement au <a href="tel:+15814470086">581-447-0086</a>.</div>
     </form>
@@ -641,53 +634,72 @@
 <!-- ══ MODAL CARRIÈRE ══ -->
 <div class="modal-overlay" id="modal-carriere">
   <div class="modal-box">
-    <button class="modal-close" onclick="closeModal('carriere')">✕</button>
+    <button class="modal-close" onclick="closeModal('carriere')" aria-label="Fermer">✕</button>
     <h3 id="carriere-title">Postuler chez GK Groupe inc</h3>
-    <p class="msub" id="carriere-sub">Remplissez le formulaire et joignez votre CV — on vous revient rapidement.</p>
-    <form id="form-carriere" action="https://api.web3forms.com/submit" method="POST" enctype="multipart/form-data">
+    <p class="msub" id="carriere-sub">Remplissez le formulaire — on vous revient rapidement.</p>
+    <form id="form-carriere" action="https://api.web3forms.com/submit" method="POST">
       <input type="hidden" name="access_key" value="7e12bb33-bec8-47ed-9c49-5411d79c59ed">
       <input type="hidden" name="subject" value="Nouvelle candidature — GK Groupe inc">
       <input type="hidden" name="from_name" value="Site GK Groupe inc">
       <input type="hidden" name="poste" id="c-poste-hidden">
       <input type="checkbox" name="botcheck" style="display:none">
       <div class="frow">
-        <div class="fg"><label>Prénom *</label><input name="prenom" required placeholder="Marie"></div>
-        <div class="fg"><label>Nom *</label><input name="nom" required placeholder="Gagnon"></div>
+        <div class="fg"><label for="c-prenom">Prénom *</label><input id="c-prenom" name="prenom" required placeholder="Marie"></div>
+        <div class="fg"><label for="c-nom">Nom *</label><input id="c-nom" name="nom" required placeholder="Gagnon"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>Téléphone *</label><input name="telephone" type="tel" required placeholder="438 000-0000"></div>
-        <div class="fg"><label>Courriel *</label><input name="courriel" type="email" required placeholder="vous@exemple.com"></div>
+        <div class="fg"><label for="c-telephone">Téléphone *</label><input id="c-telephone" name="telephone" type="tel" required placeholder="581 000-0000"></div>
+        <div class="fg"><label for="c-courriel">Courriel *</label><input id="c-courriel" name="courriel" type="email" required placeholder="vous@exemple.com"></div>
       </div>
-      <div class="fg"><label>Poste visé</label><input name="poste_affiche" id="c-poste-affiche" placeholder="Ex: Livreur, Mécanicien..."></div>
+      <div class="fg"><label for="c-poste-affiche">Poste visé</label><input name="poste_affiche" id="c-poste-affiche" placeholder="Ex: Livreur, Mécanicien..."></div>
       <div class="fg">
-        <label>Disponibilités</label>
-        <select name="disponibilites">
+        <label for="c-disponibilites">Disponibilités</label>
+        <select id="c-disponibilites" name="disponibilites">
           <option>Temps plein</option>
           <option>Temps partiel</option>
           <option>Soirs et fins de semaine</option>
           <option>Flexible</option>
         </select>
       </div>
-      <div class="fg"><label>Message / Expérience</label><textarea name="message" placeholder="Parlez-nous de vous, vos expériences passées..."></textarea></div>
-      <div class="fg fg-file">
-        <label for="cv-file">📄 <span>Joindre votre CV (PDF, Word)</span></label>
-        <input type="file" id="cv-file" name="cv" accept=".pdf,.doc,.docx" onchange="document.getElementById('cv-name').textContent = this.files[0]?.name || ''">
-        <span class="file-name" id="cv-name"></span>
-      </div>
+      <div class="fg"><label for="c-message">Message / Expérience</label><textarea id="c-message" name="message" placeholder="Parlez-nous de vous, vos expériences passées..."></textarea></div>
+      <p class="cv-mail">📄 Vous avez un CV ? Envoyez-le à <a href="mailto:gestion@gkgroupeinc.com?subject=Candidature%20%E2%80%94%20CV">gestion@gkgroupeinc.com</a> après avoir rempli ce formulaire.</p>
       <button type="submit" class="form-submit">Envoyer ma candidature →</button>
-      <p class="form-note">Envoi sécurisé vers gestion@gkgroupeinc.com</p>
-      <div class="form-sent" id="c-sent">✅ Candidature envoyée ! On vous revient bientôt. Bonne chance 🤞</div>
+      <p class="form-note">Envoi sécurisé vers gestion@gkgroupeinc.com · <a href="confidentialite.html">Politique de confidentialité</a></p>
+      <div class="form-sent" id="c-sent">✅ Candidature envoyée ! Si vous avez un CV, envoyez-le à gestion@gkgroupeinc.com. Bonne chance 🤞</div>
       <div class="form-error" id="c-error">⚠️ Erreur d'envoi. Appelez-nous directement au <a href="tel:+15814470086">581-447-0086</a>.</div>
     </form>
   </div>
 </div>
 
-<script src="vehicules.js?v=202610152254"></script>
+<script src="consent.js?v=202611211200"></script>
+<script src="vehicules.js?v=202611211200"></script>
 <script>
+/* ── HORAIRES GOOGLE : saisons recalculées automatiquement (été 7h-20h, hiver 8h-17h) ── */
+(function(){
+  var el = document.getElementById('ld-business');
+  if(!el) return;
+  try {
+    var data = JSON.parse(el.textContent);
+    var now = new Date(), y = now.getFullYear(), m = now.getMonth() + 1;
+    var debutHiver = m >= 5 ? y : y - 1;   // hiver en cours (ou prochain si on est l'été)
+    var debutEte = m >= 11 ? y + 1 : y;    // été en cours ou prochain
+    var jours = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    function saison(o, c, du, au){ return { '@type':'OpeningHoursSpecification', dayOfWeek:jours, opens:o, closes:c, validFrom:du, validThrough:au }; }
+    data.openingHoursSpecification = [
+      saison('07:00', '20:00', debutEte + '-05-01', debutEte + '-10-31'),
+      saison('08:00', '17:00', debutHiver + '-11-01', (debutHiver + 1) + '-04-30')
+    ];
+    el.textContent = JSON.stringify(data);
+  } catch(e){}
+})();
+
 /* ── PRELOADER ── */
-window.addEventListener('load', function(){
-  setTimeout(function(){ document.getElementById('preloader').classList.add('hide'); }, 900);
-});
+// Masqué dès que le HTML est prêt, sans attendre les images et les scripts tiers.
+(function(){
+  function hide(){ document.getElementById('preloader').classList.add('hide'); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(hide, 250); });
+  else setTimeout(hide, 250);
+})();
 
 /* ── REVEAL ON SCROLL ── */
 (function(){
@@ -703,10 +715,12 @@ window.addEventListener('load', function(){
 /* ── PORTFOLIO FILTERS ── */
 (function(){
   var btns = document.querySelectorAll('.filter-btn');
+  var cards = document.querySelectorAll('.work-card[data-cat]');
   btns.forEach(function(btn){
     btn.addEventListener('click', function(){
-      btns.forEach(function(b){ b.classList.remove('active'); });
-      btn.classList.add('active');
+      var f = btn.dataset.filter;
+      btns.forEach(function(b){ b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', b === btn); });
+      cards.forEach(function(c){ c.hidden = f !== 'tout' && c.dataset.cat !== f; });
     });
   });
 })();
@@ -802,7 +816,6 @@ document.getElementById('form-carriere').addEventListener('submit', function(e){
     document.getElementById('c-sent').style.display = 'block';
     setTimeout(function(){ closeModal('carriere'); document.getElementById('c-sent').style.display='none'; }, 2500);
     form.reset();
-    document.getElementById('cv-name').textContent = '';
   }).catch(function(){
     document.getElementById('c-error').style.display = 'block';
   }).finally(function(){
@@ -873,7 +886,7 @@ var _qa = {
   },
   zone:{
     user: '📍 Zone desservie ?',
-    bot: 'On dessert principalement le <b>Saguenay</b>,et les environs. Pour des destinations plus éloignées, contactez-nous directement.',
+    bot: 'On dessert principalement le <b>Saguenay</b> et les environs. Pour des destinations plus éloignées, contactez-nous directement.',
     wa: true
   },
   soumission:{

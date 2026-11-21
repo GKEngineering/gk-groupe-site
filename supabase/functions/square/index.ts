@@ -10,7 +10,7 @@
 //  Secrets (Supabase > Edge Functions > Secrets) :
 //    SQUARE_ACCESS_TOKEN, SQUARE_LOCATION_ID, SQUARE_ENV (« production » ou « sandbox »)
 // ════════════════════════════════════════════════════════════════
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.118.0';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

@@ -197,7 +197,7 @@ grant execute on function public.annuler_reservation(uuid) to authenticated;
 
 -- ── SUIVI PUBLIC PAR NUMÉRO ─────────────────────────────────────
 -- Permet de suivre un colis sans compte, avec seulement le numéro de suivi.
--- Ne renvoie ni l'adresse complète ni le client.
+-- Ne renvoie ni l'adresse, ni le client, ni les notes (les numéros se devinent).
 create or replace function public.suivre_livraison(p_numero text)
 returns json language sql stable security definer set search_path = public as $$
   select json_build_object(
@@ -206,7 +206,7 @@ returns json language sql stable security definer set search_path = public as $$
     'date_prevue',  l.date_prevue,
     'updated_at',   l.updated_at,
     'etapes', coalesce((
-      select json_agg(json_build_object('statut', e.statut, 'note', e.note, 'created_at', e.created_at)
+      select json_agg(json_build_object('statut', e.statut, 'created_at', e.created_at)
                       order by e.created_at)
       from public.livraison_etapes e where e.livraison_id = l.id), '[]'::json)
   )

@@ -49,7 +49,7 @@ begin
   if p_reponse in ('acceptee', 'refusee') then
     update public.soumissions set statut = p_reponse, repondue_at = now()
     where id = p_id and client_id = auth.uid() and statut = 'envoyee'
-      and (valide_jusqu is null or valide_jusqu >= current_date);
+      and (valide_jusqu is null or valide_jusqu >= (now() at time zone 'America/Toronto')::date);
   elsif p_reponse = 'annulee' then
     update public.soumissions set statut = 'annulee', repondue_at = now()
     where id = p_id and client_id = auth.uid() and statut = 'demandee';

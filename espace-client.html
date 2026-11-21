@@ -4,14 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-E97LYHVST7"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-E97LYHVST7');
-</script>
+<!-- Google Analytics : chargé seulement si le visiteur accepte les témoins (consent.js, Loi 25) -->
 
 <title>Espace client — GK Groupe inc</title>
 <meta name="description" content="Espace client GK Groupe inc : réservez un service, consultez vos soumissions et factures, suivez vos livraisons.">
@@ -22,8 +15,8 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=202610152254">
-<link rel="stylesheet" href="espace-client.css?v=202610152254">
+<link rel="stylesheet" href="style.css?v=202611211200">
+<link rel="stylesheet" href="espace-client.css?v=202611211200">
 </head>
 <body class="ec-body">
 
@@ -84,6 +77,7 @@
         <div class="fg"><label for="su-email">Courriel</label><input id="su-email" type="email" autocomplete="email" required></div>
         <div class="fg"><label for="su-pass">Mot de passe <span class="ec-muted">(8 caractères min.)</span></label><input id="su-pass" type="password" autocomplete="new-password" minlength="8" required></div>
         <button type="submit" class="form-submit">Créer mon compte</button>
+        <p class="form-note">En créant un compte, vous acceptez notre <a href="confidentialite.html">politique de confidentialité</a>.</p>
       </form>
 
       <p class="ec-msg" id="auth-msg" role="status"></p>
@@ -396,9 +390,10 @@
   © 2026 GK Groupe inc · <a href="tel:+15814470086">581-447-0086</a> · <a href="mailto:gestion@gkgroupeinc.com">gestion@gkgroupeinc.com</a>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=202610152254"></script>
-<script src="vehicules.js?v=202610152254"></script>
-<script src="espace-client.js?v=202610152254"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
+<script src="consent.js?v=202611211200"></script>
+<script src="supabase-config.js?v=202611211200"></script>
+<script src="vehicules.js?v=202611211200"></script>
+<script src="espace-client.js?v=202611211200"></script>
 </body>
 </html>

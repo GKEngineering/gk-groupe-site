@@ -8,7 +8,7 @@
 //  l'authenticité est vérifiée avec la signature HMAC de Square.
 //  Secrets : SQUARE_WEBHOOK_SIGNATURE_KEY, SQUARE_WEBHOOK_URL (l'URL exacte de cette fonction)
 // ════════════════════════════════════════════════════════════════
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.118.0';
 
 const SIGNATURE_KEY = Deno.env.get('SQUARE_WEBHOOK_SIGNATURE_KEY') ?? '';
 const WEBHOOK_URL = Deno.env.get('SQUARE_WEBHOOK_URL') ?? '';

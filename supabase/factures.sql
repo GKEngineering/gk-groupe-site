@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════
 --  GK Groupe inc — Factures finales + réservations créées par l'admin
---  À lancer après schema.sql et soumissions.sql. Relançable sans danger.
+--  À lancer après schema.sql et soumissions.sql (puis securite.sql). Relançable sans danger.
 -- ════════════════════════════════════════════════════════════════
 
 -- ── Réservations créées par GK Groupe (client au téléphone, sans compte) ──
